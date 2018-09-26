@@ -1,0 +1,34 @@
+{
+  "name": "dovetail-counts-lambda",
+  "version": "0.0.1",
+  "engines": {
+    "node": "8.10.0"
+  },
+  "description": "Count which bytes of a multi-segment mp3 were downloaded",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "build": "zip build.zip index.js"
+  },
+  "repository": "git@github.com:PRX/dovetail-counts-lambda.git",
+  "keywords": [
+    "lambda",
+    "dovetail",
+    "bytes",
+    "counts"
+  ],
+  "author": "ryan cavis <ryan@prx.org>",
+  "license": "GPL-3.0-only",
+  "bugs": {
+    "url": "https://github.com/PRX/dovetail-counts-lambda/issues"
+  },
+  "homepage": "https://github.com/PRX/dovetail-counts-lambda#readme",
+  "dependencies": {
+    "lambda-log": "^2.0.0",
+    "redis": "^2.8.0"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.323.0",
+    "jest": "^23.6.0"
+  }
+}
