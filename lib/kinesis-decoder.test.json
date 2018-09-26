@@ -1,0 +1,37 @@
+
+{
+    "Records": [
+        {
+            "kinesis": {
+                "kinesisSchemaVersion": "1.0",
+                "partitionKey": "362731ea482b28e95f61c62dd5eb07fc",
+                "sequenceNumber": "49586843232915544553633526406057084486913035249781833730",
+                "data": "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",
+                "approximateArrivalTimestamp": 1537990286.432
+            },
+            "eventSource": "aws:kinesis",
+            "eventVersion": "1.0",
+            "eventID": "shardId-000000000000:49586843232915544553633526406057084486913035249781833730",
+            "eventName": "aws:kinesis:record",
+            "invokeIdentityArn": "arn:aws:iam::561178107736:role/lambda_kinesis_execution",
+            "awsRegion": "us-east-1",
+            "eventSourceARN": "arn:aws:kinesis:us-east-1:561178107736:stream/dovetail-bytes-production"
+        },
+        {
+            "kinesis": {
+                "kinesisSchemaVersion": "1.0",
+                "partitionKey": "227ed2c669a8ad656b820afac99151e7",
+                "sequenceNumber": "49586843232915544553633526406058293412732649878956539906",
+                "data": "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",
+                "approximateArrivalTimestamp": 1537990286.487
+            },
+            "eventSource": "aws:kinesis",
+            "eventVersion": "1.0",
+            "eventID": "shardId-000000000000:49586843232915544553633526406058293412732649878956539906",
+            "eventName": "aws:kinesis:record",
+            "invokeIdentityArn": "arn:aws:iam::561178107736:role/lambda_kinesis_execution",
+            "awsRegion": "us-east-1",
+            "eventSourceARN": "arn:aws:kinesis:us-east-1:561178107736:stream/dovetail-bytes-production"
+        }
+    ]
+}
