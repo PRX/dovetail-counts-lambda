@@ -1,0 +1,5 @@
+REDIS_ARRANGEMENT_TTL=
+REDIS_BYTES_TTL=
+REDIS_URL=localhost
+S3_BUCKET=prx-dovetail
+S3_PREFIX=stitch-testing
