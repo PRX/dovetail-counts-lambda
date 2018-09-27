@@ -29,6 +29,13 @@
   },
   "devDependencies": {
     "aws-sdk": "^2.323.0",
+    "dotenv": "^6.0.0",
     "jest": "^23.6.0"
+  },
+  "jest": {
+    "globalSetup": "<rootDir>/test-setup.js",
+    "modulePathIgnorePatterns": [
+      "<rootDir>/build/"
+    ]
   }
 }
