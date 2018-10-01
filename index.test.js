@@ -1,4 +1,7 @@
+const log = require('lambda-log')
 const { handler } = require('./index')
+const { BadEventError, RedisConnError } = require('./lib/errors')
+const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/kinesis-decoder')
 const Redis = require('./lib/redis')
 const s3 = require('./lib/s3')
@@ -11,11 +14,13 @@ describe('handler', () => {
   const redis = new Redis()
 
   beforeEach(() => {
+    jest.spyOn(log, 'info').mockImplementation(() => null)
     delete process.env.DEFAULT_BITRATE
     delete process.env.SECONDS_THRESHOLD
   })
 
   afterEach(async () => {
+    jest.restoreAllMocks()
     decoder.__clearBytes()
     s3.__clearArrangements()
     await redis.nuke('dtcounts:s3:test*')
@@ -23,7 +28,7 @@ describe('handler', () => {
   })
 
   it('records empty downloads', async () => {
-    s3.__addArrangement('test-digest', {version:3, data: {t:'aao', b:[10, 20, 30, 40]}})
+    s3.__addArrangement('test-digest', {version:3, data: {t:'aao', b: [10, 20, 30, 40]}})
     decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 0, end: 12})
     decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 2, end: 10})
     decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 33, end: 34})
@@ -45,7 +50,7 @@ describe('handler', () => {
     process.env.DEFAULT_BITRATE = 80 // 10 bytes per second
     process.env.SECONDS_THRESHOLD = 10
 
-    s3.__addArrangement('test-digest', {version:3, data: {t:'o', b:[100, 300]}})
+    s3.__addArrangement('test-digest', {version:3, data: {t:'o', b: [100, 300]}})
     decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 0, end: 198})
 
     const results1 = await handler()
@@ -67,7 +72,7 @@ describe('handler', () => {
   it('uses a percentage threshold', async () => {
     process.env.PERCENT_THRESHOLD = 0.5
 
-    s3.__addArrangement('test-digest', {version:3, data: {t:'oa', b:[100, 400, 500]}})
+    s3.__addArrangement('test-digest', {version:3, data: {t:'oa', b: [100, 400, 500]}})
     decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 0, end: 248})
 
     const results1 = await handler()
@@ -93,6 +98,47 @@ describe('handler', () => {
     expect(results3.test1.segmentBytes).toEqual([300, 12])
     expect(results3.test1.overall).toEqual('percent')
     expect(results3.test1.overallBytes).toEqual(312)
+  })
+
+  it('it warns on bad arrangements', async () => {
+    jest.spyOn(log, 'warn').mockImplementation(() => null)
+
+    s3.__addArrangement('test-digest', {version:3, data: {t:'o', b: [10, 100]}})
+    s3.__addArrangement('test-digest2', {version:2, data: {t:'o', b: [10, 100]}})
+    decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 0, end: 100})
+    decoder.__addBytes({uuid: 'test2', digest: 'test-digest2', start: 0, end: 100})
+    decoder.__addBytes({uuid: 'test3', digest: 'foobar', start: 0, end: 100})
+
+    const results = await handler()
+    expect(results.test1.overallBytes).toEqual(91)
+    expect(log.warn).toHaveBeenCalledTimes(2)
+    const warns = log.warn.mock.calls.map(c => c[0].toString()).sort()
+    expect(warns[0]).toMatch('ArrangementNoBytesError: Old test-digest2')
+    expect(warns[1]).toMatch('ArrangementNotFoundError: Missing foobar')
+  })
+
+  it('handles event parsing errors', async () => {
+    const err = new BadEventError('Something bad')
+    jest.spyOn(decoder, 'decodeEvent').mockRejectedValue(err)
+    jest.spyOn(log, 'error').mockImplementation(() => null)
+    expect(await handler()).toEqual(false)
+    expect(log.error).toHaveBeenCalledTimes(1)
+    expect(log.error.mock.calls[0][0].toString()).toMatch('BadEventError: Something bad')
+  })
+
+  it('throws and retries redis errors', async () => {
+    const err = new RedisConnError('Something bad')
+    jest.spyOn(ByteRange, 'load').mockRejectedValue(err)
+    jest.spyOn(log, 'error').mockImplementation(() => null)
+    s3.__addArrangement('test-digest', {version:3, data: {t:'o', b: [10, 100]}})
+    decoder.__addBytes({uuid: 'test1', digest: 'test-digest', start: 0, end: 100})
+    try {
+      await handler()
+      fail('should have gotten an error')
+    } catch (err) {
+      expect(log.error).toHaveBeenCalledTimes(1)
+      expect(log.error.mock.calls[0][0].toString()).toMatch('RedisConnError: Something bad')
+    }
   })
 
 })

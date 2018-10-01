@@ -25,7 +25,17 @@ exports.handler = async (event) => {
       const range = await ByteRange.load(uuid, redis, decoded[uuid].bytes)
 
       // lookup arrangement
-      const arr = await Arrangement.load(decoded[uuid].digest, redis)
+      let arr
+      try {
+        arr = await Arrangement.load(decoded[uuid].digest, redis)
+      } catch (err) {
+        if (err.skippable) {
+          log.warn(err)
+          return false
+        } else {
+          throw err
+        }
+      }
 
       // check which segments have been downloaded
       const bytesDownloaded = arr.segments.map(s => range.intersect(s))
@@ -45,7 +55,7 @@ exports.handler = async (event) => {
       const hasPercent = arr.bytesToPercent(total) >= minPercent
       const overall = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
 
-      // TODO: log downloads
+      // TODO: log downloads to bigquery kinesis
       return {
         segments: isDownloaded,
         segmentBytes: bytesDownloaded,
@@ -54,11 +64,26 @@ exports.handler = async (event) => {
       }
     })
 
-    // return mapped results (for easy testing)
-    const results = await Promise.all(handlers)
+    // log results
+    const handled = await Promise.all(handlers)
+    const results = handled.filter(r => r)
+    const countOverall = results.filter(r => r.overall).length
+    const countSegments = results.map(r => r.segments.filter(s => s).length).reduce((a, b) => a + b, 0)
+    const info = {overall: countOverall, segments: countSegments, uuids: uuids.length}
+    log.info(`Sent ${countOverall} overall / ${countSegments} segments`, info)
+    if (handled.length > results.length) {
+      log.info(`Skipped ${handled.length - results.length}`)
+    }
+
+    // return all processed, for easy testing
     return results.reduce((map, r, i) => { map[uuids[i]] = r; return map }, {})
   } catch (err) {
-    console.error(err.stack)
-    throw err
+    if (err.retryable) {
+      log.error(err)
+      throw err
+    } else {
+      log.error(err)
+      return false
+    }
   }
 }
