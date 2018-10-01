@@ -17,8 +17,8 @@ exports.handler = async (event) => {
     const redis = new Redis()
 
     // thresholds
-    const minSeconds = process.env.SECONDS_THRESHOLD || DEFAULT_SECONDS_THRESHOLD
-    const minPercent = process.env.PERCENT_THRESHOLD || DEFAULT_PERCENT_THRESHOLD
+    const minSeconds = parseInt(process.env.SECONDS_THRESHOLD) || DEFAULT_SECONDS_THRESHOLD
+    const minPercent = parseFloat(process.env.PERCENT_THRESHOLD) || DEFAULT_PERCENT_THRESHOLD
 
     // concurrently process each request-uuid
     const handlers = uuids.map(async (uuid) => {
