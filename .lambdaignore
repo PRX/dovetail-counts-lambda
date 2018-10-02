@@ -1,0 +1,14 @@
+.dockerignore
+.env
+.git
+.gitignore
+.lambdaignore
+.nvmrc
+__mocks__
+Dockerfile
+docker-compose.yml
+/build*
+/tmp
+*.test.js
+*.log
+*.zip
