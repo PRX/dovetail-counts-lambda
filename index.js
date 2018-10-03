@@ -11,10 +11,11 @@ const DEFAULT_PERCENT_THRESHOLD = 0.5
  * Process kinesis'd cloudwatch logged bytes-download. Send to BigQuery
  */
 exports.handler = async (event) => {
+  let redis
   try {
     const decoded = await decoder.decodeEvent(event)
     const uuids = Object.keys(decoded)
-    const redis = new Redis()
+    redis = new Redis()
 
     // thresholds
     const minSeconds = parseInt(process.env.SECONDS_THRESHOLD) || DEFAULT_SECONDS_THRESHOLD
@@ -76,8 +77,12 @@ exports.handler = async (event) => {
     }
 
     // return all processed, for easy testing
+    redis.disconnect()
     return results.reduce((map, r, i) => { map[uuids[i]] = r; return map }, {})
   } catch (err) {
+    if (redis) {
+      redis.disconnect()
+    }
     if (err.retryable) {
       log.error(err)
       throw err
