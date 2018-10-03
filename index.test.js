@@ -11,9 +11,9 @@ jest.mock('./lib/s3')
 
 describe('handler', () => {
 
-  const redis = new Redis()
-
+  let redis
   beforeEach(() => {
+    redis = new Redis()
     jest.spyOn(log, 'info').mockImplementation(() => null)
     delete process.env.DEFAULT_BITRATE
     delete process.env.SECONDS_THRESHOLD
