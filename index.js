@@ -77,11 +77,11 @@ exports.handler = async (event) => {
     }
 
     // return all processed, for easy testing
-    redis.disconnect()
+    redis.disconnect().catch(err => null)
     return results.reduce((map, r, i) => { map[uuids[i]] = r; return map }, {})
   } catch (err) {
     if (redis) {
-      redis.disconnect()
+      redis.disconnect().catch(err => null)
     }
     if (err.retryable) {
       log.error(err)
