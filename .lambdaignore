@@ -7,8 +7,10 @@
 __mocks__
 Dockerfile
 docker-compose.yml
+test-setup.js
 /build*
 /tmp
 *.test.js
+*.test.json
 *.log
 *.zip
