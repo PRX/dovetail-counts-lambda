@@ -1,0 +1,22 @@
+version: '2'
+services:
+  test:
+    build: .
+    image: dovetailcountslambda
+    command: test
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379
+    links:
+      - redis
+    volumes:
+      - ./index.js:/app/index.js
+      - ./index.test.js:/app/index.test.js
+      - ./package.json:/app/package.json
+      - ./test-setup.js:/app/test-setup.js
+      - ./lib:/app/lib
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
