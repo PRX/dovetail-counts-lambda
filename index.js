@@ -25,6 +25,7 @@ exports.handler = async (event) => {
     // concurrently process each request-uuid
     const handlers = uuids.map(async (uuid) => {
       const range = await ByteRange.load(uuid, redis, decoded[uuid].bytes)
+      const time = decoded[uuid].time
 
       // lookup arrangement
       let arr
@@ -45,7 +46,7 @@ exports.handler = async (event) => {
         const seconds = arr.bytesToSeconds(bytes)
         const percent = arr.bytesToPercent(bytes, idx)
         if (seconds >= minSeconds || percent >= minPercent) {
-          kinesis.putImpression({uuid, bytes, seconds, percent, segment: idx})
+          kinesis.putImpression({time, uuid, bytes, seconds, percent, segment: idx})
           return seconds >= minSeconds ? 'seconds' : 'percent'
         } else {
           return false
@@ -60,11 +61,9 @@ exports.handler = async (event) => {
       const hasPercent = totalPercent >= minPercent
       const overall = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
       if (overall) {
-        kinesis.putImpression({uuid, bytes: total, seconds: totalSeconds, percent: totalPercent})
+        kinesis.putImpression({time, uuid, bytes: total, seconds: totalSeconds, percent: totalPercent})
       }
 
-      // TODO: timestamp?
-      // console.log(decoded[uuid])
       return {
         segments: isDownloaded,
         segmentBytes: bytesDownloaded,
