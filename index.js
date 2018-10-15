@@ -1,6 +1,7 @@
 const log = require('lambda-log')
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/kinesis-decoder')
+const kinesis = require('./lib/kinesis')
 const Redis = require('./lib/redis')
 const Arrangement = require('./lib/arrangement')
 
@@ -24,6 +25,7 @@ exports.handler = async (event) => {
     // concurrently process each request-uuid
     const handlers = uuids.map(async (uuid) => {
       const range = await ByteRange.load(uuid, redis, decoded[uuid].bytes)
+      const time = decoded[uuid].time
 
       // lookup arrangement
       let arr
@@ -41,10 +43,11 @@ exports.handler = async (event) => {
       // check which segments have been downloaded
       const bytesDownloaded = arr.segments.map(s => range.intersect(s))
       const isDownloaded = bytesDownloaded.map((bytes, idx) => {
-        if (arr.bytesToSeconds(bytes) >= minSeconds) {
-          return 'seconds'
-        } else if (arr.bytesToPercent(bytes, idx) >= minPercent) {
-          return 'percent'
+        const seconds = arr.bytesToSeconds(bytes)
+        const percent = arr.bytesToPercent(bytes, idx)
+        if (seconds >= minSeconds || percent >= minPercent) {
+          kinesis.putImpression({time, uuid, bytes, seconds, percent, segment: idx})
+          return seconds >= minSeconds ? 'seconds' : 'percent'
         } else {
           return false
         }
@@ -52,11 +55,15 @@ exports.handler = async (event) => {
 
       // check if the file-as-a-whole has been downloaded
       const total = bytesDownloaded.reduce((a, b) => a + b, 0)
-      const hasSeconds = arr.bytesToSeconds(total) >= minSeconds
-      const hasPercent = arr.bytesToPercent(total) >= minPercent
+      const totalSeconds = arr.bytesToSeconds(total)
+      const totalPercent = arr.bytesToPercent(total)
+      const hasSeconds = totalSeconds >= minSeconds
+      const hasPercent = totalPercent >= minPercent
       const overall = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
+      if (overall) {
+        kinesis.putImpression({time, uuid, bytes: total, seconds: totalSeconds, percent: totalPercent})
+      }
 
-      // TODO: log downloads to bigquery kinesis
       return {
         segments: isDownloaded,
         segmentBytes: bytesDownloaded,

@@ -89,9 +89,38 @@ can end up firing a whole bunch of downloads for the same file/segment.  So it's
 important that they're considered idempotent in BigQuery, or some sort of
 unique constraint is applied later on.
 
-### Kinesis / BigQuery out
+### Kinesis missing arrangements stream
 
-TODO
+The `KINESIS_ARRANGEMENT_STREAM` ENV is (probably) temporary.  When configured, the lambda will push any non-v3 arrangement digests onto the stream.  Then some other processor can ping the dovetail-stitch-lambda, which does the actual work of calculating the segment-bytes of the arrangement and uploading the v3 json to S3.
+
+### Kinesis Impressions stream
+
+The `KINESIS_IMPRESSION_STREAM` is the main output of this function.  These should be processed by another lambda and streamed to BigQuery via the Dovetail [analytics-ingest-lambda](https://github.com/PRX/analytics-ingest-lambda)  These kinesis json records have the format:
+
+```json
+{
+  "type": "bytes",
+  "timestamp": 1539206255516,
+  "request_uuid": "some-guid",
+  "bytes_downloaded": 9999,
+  "seconds_downloaded": 1.84,
+  "percent_downloaded": 0.65
+}
+```
+
+or
+
+```json
+{
+  "type": "segmentbytes",
+  "timestamp": 1539206255516,
+  "request_uuid": "some-guid",
+  "segment_index": 3,
+  "bytes_downloaded": 9999,
+  "seconds_downloaded": 1.84,
+  "percent_downloaded": 0.65
+}
+```
 
 ## Error handling
 
