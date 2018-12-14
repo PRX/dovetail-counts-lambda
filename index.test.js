@@ -33,21 +33,20 @@ describe('handler', () => {
 
   it('records empty downloads', async () => {
     s3.__addArrangement('itest-digest', {version:3, data: {t:'aao', b: [10, 20, 30, 40]}})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 0, end: 12})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 2, end: 10})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 33, end: 34})
-    decoder.__addBytes({uuid: 'itest2', digest: 'itest-digest', start: 22, end: 25})
-    decoder.__addBytes({uuid: 'itest2', digest: 'itest-digest', start: 0, end: 4})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 0, end: 12})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 2, end: 10})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 33, end: 34})
+    decoder.__addBytes({ls: 'itest2', digest: 'itest-digest', start: 22, end: 25})
+    decoder.__addBytes({ls: 'itest2', digest: 'itest-digest', start: 0, end: 4})
 
     const results = await handler()
-    expect(results.itest1.segments).toEqual([false, false, false])
-    expect(results.itest1.segmentBytes).toEqual([3, 0, 2])
-    expect(results.itest1.overall).toEqual(false)
-    expect(results.itest1.overallBytes).toEqual(5)
-    expect(results.itest2.segments).toEqual([false, false, false])
-    expect(results.itest2.segmentBytes).toEqual([0, 4, 0])
-    expect(results.itest2.overall).toEqual(false)
-    expect(results.itest2.overallBytes).toEqual(4)
+    expect(Object.keys(results)).toEqual(['itest1/itest-digest', 'itest2/itest-digest'])
+    expect(results['itest1/itest-digest'].segments).toEqual([false, false, false])
+    expect(results['itest1/itest-digest'].overall).toEqual(false)
+    expect(results['itest1/itest-digest'].overallBytes).toEqual(5)
+    expect(results['itest2/itest-digest'].segments).toEqual([false, false, false])
+    expect(results['itest2/itest-digest'].overall).toEqual(false)
+    expect(results['itest2/itest-digest'].overallBytes).toEqual(4)
     expect(kinesis.__records.length).toEqual(0)
   })
 
@@ -56,26 +55,28 @@ describe('handler', () => {
     process.env.SECONDS_THRESHOLD = 10
 
     s3.__addArrangement('itest-digest', {version:3, data: {t:'o', b: [100, 300]}})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 0, end: 198})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 0, end: 198, time: 99998})
 
     const results1 = await handler()
-    expect(results1.itest1.segments).toEqual([false])
-    expect(results1.itest1.segmentBytes).toEqual([99])
-    expect(results1.itest1.overall).toEqual(false)
-    expect(results1.itest1.overallBytes).toEqual(99)
+    expect(results1['itest1/itest-digest'].overall).toEqual(false)
+    expect(results1['itest1/itest-digest'].overallBytes).toEqual(99)
     expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 199, end: 199})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 199, end: 199, time: 99999})
 
     const results2 = await handler()
-    expect(results2.itest1.segments).toEqual(['seconds'])
-    expect(results2.itest1.segmentBytes).toEqual([100])
-    expect(results2.itest1.overall).toEqual('seconds')
-    expect(results2.itest1.overallBytes).toEqual(100)
-    expect(kinesis.__records.length).toEqual(2)
-    expect(kinesis.__records[0]).toEqual({uuid: 'itest1', segment: 0, bytes: 100, seconds: 10, percent: 100 / 201})
-    expect(kinesis.__records[1]).toEqual({uuid: 'itest1', bytes: 100, seconds: 10, percent: 100 / 201})
+    expect(results2['itest1/itest-digest'].overall).toEqual('seconds')
+    expect(results2['itest1/itest-digest'].overallBytes).toEqual(100)
+    expect(kinesis.__records.length).toEqual(1)
+    expect(kinesis.__records[0]).toEqual({
+      time: 99999,
+      listenerSession: 'itest1',
+      digest: 'itest-digest',
+      bytes: 100,
+      seconds: 10,
+      percent: 100 / 201
+    })
   })
 
   it('uses a percentage threshold', async () => {
@@ -83,37 +84,53 @@ describe('handler', () => {
     process.env.PERCENT_THRESHOLD = 0.5
 
     s3.__addArrangement('itest-digest', {version:3, data: {t:'oa', b: [100, 400, 500]}})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 0, end: 248})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 0, end: 248, time: 99990})
 
     const results1 = await handler()
-    expect(results1.itest1.segments).toEqual([false, false])
-    expect(results1.itest1.segmentBytes).toEqual([149, 0])
-    expect(results1.itest1.overall).toEqual(false)
-    expect(results1.itest1.overallBytes).toEqual(149)
+    expect(results1['itest1/itest-digest'].overall).toEqual(false)
+    expect(results1['itest1/itest-digest'].overallBytes).toEqual(149)
     expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 399, end: 411})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 399, end: 411, time: 99994})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 100, end: 397, time: 99991})
 
     const results2 = await handler()
-    expect(results2.itest1.segments).toEqual(['percent', false])
-    expect(results2.itest1.segmentBytes).toEqual([150, 12])
-    expect(results2.itest1.overall).toEqual(false)
-    expect(results2.itest1.overallBytes).toEqual(162)
+    expect(results2['itest1/itest-digest'].overall).toEqual('percent')
+    expect(results2['itest1/itest-digest'].overallBytes).toEqual(311)
     expect(kinesis.__records.length).toEqual(1)
-    expect(kinesis.__records[0]).toEqual({uuid: 'itest1', segment: 0, bytes: 150, seconds: 1.5, percent: 0.5})
+    expect(kinesis.__records[0]).toEqual({
+      time: 99994,
+      listenerSession: 'itest1',
+      digest: 'itest-digest',
+      bytes: 311,
+      seconds: 3.11,
+      percent: 311 / 401
+    })
+  })
+
+  it('does not count segments until they are fully downloaded', async () => {
+    s3.__addArrangement('itest-digest', {version:3, data: {t:'aao', b: [100, 200, 300, 4000]}})
+    s3.__addArrangement('itest-digest2', {version:3, data: {t:'aao', b: [100, 200, 300, 4000]}})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 0, end: 198})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 200, end: 280})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 282, end: 300})
+
+    const results1 = await handler()
+    expect(results1['itest1/itest-digest'].segments).toEqual([false, false, false])
+    expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 100, end: 400})
+    decoder.__addBytes({ls: 'itest2', digest: 'itest-digest', start: 199, end: 199})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest2', start: 199, end: 199})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 281, end: 281})
 
-    const results3 = await handler()
-    expect(results3.itest1.segments).toEqual(['percent', false])
-    expect(results3.itest1.segmentBytes).toEqual([300, 12])
-    expect(results3.itest1.overall).toEqual('percent')
-    expect(results3.itest1.overallBytes).toEqual(312)
-    expect(kinesis.__records.length).toEqual(3)
-    expect(kinesis.__records[1]).toEqual({uuid: 'itest1', segment: 0, bytes: 300, seconds: 3, percent: 1})
-    expect(kinesis.__records[2]).toEqual({uuid: 'itest1', bytes: 312, seconds: 3.12, percent: 312 / 401})
+    const results2 = await handler()
+    expect(results2['itest1/itest-digest'].segments).toEqual([false, true, false])
+    expect(results2['itest1/itest-digest2'].segments).toEqual([false, false, false])
+    expect(results2['itest2/itest-digest'].segments).toEqual([false, false, false])
+    expect(kinesis.__records.length).toEqual(1)
+    expect(kinesis.__records[0]).toEqual({listenerSession: 'itest1', digest: 'itest-digest', segment: 1})
   })
 
   it('it warns on bad arrangements', async () => {
@@ -121,12 +138,12 @@ describe('handler', () => {
 
     s3.__addArrangement('itest-digest', {version:3, data: {t:'o', b: [10, 100]}})
     s3.__addArrangement('itest-digest2', {version:2, data: {t:'o', b: [10, 100]}})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 0, end: 100})
-    decoder.__addBytes({uuid: 'itest2', digest: 'itest-digest2', start: 0, end: 100})
-    decoder.__addBytes({uuid: 'itest3', digest: 'foobar', start: 0, end: 100})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 0, end: 100})
+    decoder.__addBytes({ls: 'itest2', digest: 'itest-digest2', start: 0, end: 100})
+    decoder.__addBytes({ls: 'itest3', digest: 'foobar', start: 0, end: 100})
 
     const results = await handler()
-    expect(results.itest1.overallBytes).toEqual(91)
+    expect(results['itest1/itest-digest'].overallBytes).toEqual(91)
     expect(log.warn).toHaveBeenCalledTimes(2)
     const warns = log.warn.mock.calls.map(c => c[0].toString()).sort()
     expect(warns[0]).toMatch('ArrangementNoBytesError: Old itest-digest2')
@@ -147,7 +164,7 @@ describe('handler', () => {
     jest.spyOn(ByteRange, 'load').mockRejectedValue(err)
     jest.spyOn(log, 'error').mockImplementation(() => null)
     s3.__addArrangement('itest-digest', {version:3, data: {t:'o', b: [10, 100]}})
-    decoder.__addBytes({uuid: 'itest1', digest: 'itest-digest', start: 0, end: 100})
+    decoder.__addBytes({ls: 'itest1', digest: 'itest-digest', start: 0, end: 100})
     try {
       await handler()
       fail('should have gotten an error')
