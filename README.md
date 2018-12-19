@@ -18,17 +18,17 @@ logs across regions, each incoming "event" looks something like:
 
 ```
 {
-  "uuid": "4ab8d1b8-38eb-49d0-aa27-c7074e529b73",
+  "ls": "the-listener-session",
+  "digest": "BtTifRE9b9iscgXovKINxPG5HX4Iqzlu1851WvgcCPY",
   "start": 489274,
   "end": 21229635,
   "total": 21229636,
-  "digest": "BtTifRE9b9iscgXovKINxPG5HX4Iqzlu1851WvgcCPY\",
   "region": "us-west-2"
 }
 ```
 
 This exactly what the [dovetail-bytes-lambda](https://github.com/PRX/dovetail-bytes-lambda) logs,
-and tells us which request-uuid and arrangement-digest to lookup.
+and tells us which listener-session and arrangement-digest to lookup.
 
 ### Dovetail Arrangements
 
@@ -67,27 +67,31 @@ is created by dovetail when it creates the stitched file, and has the format:
 ### Redis Byte-Ranges
 
 Since there is no guarantee when we'll get each byte-range request event, this
-lambda "pushes" each request onto a list of bytes for each request uuid. A lua
-function in the Redis lib accomplishes this. These byte ranges also have a TTL
-so they don't stick around forever.
+lambda "pushes" each request onto a list of bytes for each listener-session +
+arrangement-digest. A lua function in the Redis lib accomplishes this. These
+byte ranges also have a TTL so they don't stick around forever.
 
 ```
-redis:6379> dtcounts:bytes:4ab8d1b8-38eb-49d0-aa27-c7074e529b73
+redis:6379> dtcounts:bytes:<listener-session>/<digest>
 "0-1,250289-360548,489274-21229635"
 ```
 
 ## Outputs
 
 After pushing the new byte-range to Redis, we also get back the _complete_ range
-downloaded for that request-uuid.  That can be compared to the arrangement to
+downloaded for that listener-session-digest.  That can be compared to the arrangement to
 determine how many total-bytes, and bytes-of-each-segment were downloaded.  After
-a threshold seconds (or a percentage) of the segment is downloaded, we then log
-that as an IAB-2.0 complaint download/impression.
+a threshold seconds (or a percentage) of the entire file is downloaded, we then log
+that as an IAB-2.0 complaint download.  For segments, we wait for _all_ the bytes
+to be downloaded before sending an IAB-2.0 complaint impression.
 
 Since we might receive additional requests _after we've logged a download_, we
-can end up firing a whole bunch of downloads for the same file/segment.  So it's
-important that they're considered idempotent in BigQuery, or some sort of
+can end up firing a whole bunch of downloads for the same listener-session-digest.  
+So it's important that they're considered idempotent in BigQuery, or some sort of
 unique constraint is applied later on.
+
+TODO: introduce some sort of "this-was-already-logged" redis lock so we don't fire
+a bunch of duplicates into BigQuery.
 
 ### Kinesis missing arrangements stream
 
@@ -101,10 +105,11 @@ The `KINESIS_IMPRESSION_STREAM` is the main output of this function.  These shou
 {
   "type": "bytes",
   "timestamp": 1539206255516,
-  "request_uuid": "some-guid",
-  "bytes_downloaded": 9999,
-  "seconds_downloaded": 1.84,
-  "percent_downloaded": 0.65
+  "listenerSession": "some-listener-session",
+  "digest": "the-arrangement-digest",
+  "bytes": 9999,
+  "seconds": 1.84,
+  "percent": 0.65
 }
 ```
 
@@ -114,11 +119,9 @@ or
 {
   "type": "segmentbytes",
   "timestamp": 1539206255516,
-  "request_uuid": "some-guid",
-  "segment_index": 3,
-  "bytes_downloaded": 9999,
-  "seconds_downloaded": 1.84,
-  "percent_downloaded": 0.65
+  "listenerSession": "some-listener-session",
+  "digest": "the-arrangement-digest",
+  "segment": 3
 }
 ```
 
