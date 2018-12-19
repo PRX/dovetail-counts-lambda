@@ -72,7 +72,7 @@ arrangement-digest. A lua function in the Redis lib accomplishes this. These
 byte ranges also have a TTL so they don't stick around forever.
 
 ```
-redis:6379> dtcounts:bytes:<listener-session>/<digest>
+redis:6379> GET dtcounts:bytes:<listener-session>/<digest>
 "0-1,250289-360548,489274-21229635"
 ```
 
@@ -86,12 +86,24 @@ that as an IAB-2.0 complaint download.  For segments, we wait for _all_ the byte
 to be downloaded before sending an IAB-2.0 complaint impression.
 
 Since we might receive additional requests _after we've logged a download_, we
-can end up firing a whole bunch of downloads for the same listener-session-digest.  
-So it's important that they're considered idempotent in BigQuery, or some sort of
-unique constraint is applied later on.
+also lock the impression via a redis hash:
 
-TODO: introduce some sort of "this-was-already-logged" redis lock so we don't fire
-a bunch of duplicates into BigQuery.
+```
+redis:6379> HGETALL dtcounts:imp:<listener-session>/<digest>
+1) "0"
+2) ""
+3) "1"
+4) ""
+5) "2"
+6) ""
+7) "all"
+8) ""
+```
+
+The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 1 hour. So this lock cannot
+permanently prevent duplicate logged downloads/impressions. It just cuts down
+on the most common dups, since most clients will download an entire file and
+then never use that CDN url again.
 
 ### Kinesis missing arrangements stream
 
