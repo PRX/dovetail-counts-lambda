@@ -49,12 +49,13 @@ exports.handler = async (event) => {
       const totalPercent = arr.bytesToPercent(total)
       const hasSeconds = totalSeconds >= minSeconds
       const hasPercent = totalPercent >= minPercent
-      const overall = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
+      const overallReason = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
 
       // start waiting for impressions
       let waiters = []
-      if (overall) {
-        waiters.push(kinesis.putImpression({time, listenerSession, digest, bytes: total, seconds: totalSeconds, percent: totalPercent}))
+      if (overallReason) {
+        const imp = {time, listenerSession, digest, bytes: total, seconds: totalSeconds, percent: totalPercent}
+        waiters.push(kinesis.putImpressionLock(redis, imp))
       } else {
         waiters.push(false)
       }
@@ -62,17 +63,17 @@ exports.handler = async (event) => {
       // check which segments have been FULLY downloaded
       waiters = waiters.concat(arr.segments.map(async ([firstByte, lastByte], idx) => {
         if (range.complete(firstByte, lastByte)) {
-          await kinesis.putImpression({time, listenerSession, digest, segment: idx})
-          return true
+          const imp = {time, listenerSession, digest, segment: idx}
+          return await kinesis.putImpressionLock(redis, imp)
         } else {
           return false
         }
       }))
 
-      const [_, ...segmentImpressions] = await Promise.all(waiters)
+      const [overallImpression, ...segmentImpressions] = await Promise.all(waiters)
       return {
         segments: segmentImpressions,
-        overall: overall,
+        overall: overallImpression ? overallReason : false,
         overallBytes: total,
       }
     })
