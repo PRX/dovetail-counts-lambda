@@ -16,9 +16,9 @@ been sent, logs that request-uuid as a "download", in compliance with the
 Excluding a bunch of gzip-ing and base64-ing done by kinesis as it moves CloudWatch
 logs across regions, each incoming "event" looks something like:
 
-```
+```json
 {
-  "ls": "the-listener-session",
+  "le": "the-listener-episode",
   "digest": "BtTifRE9b9iscgXovKINxPG5HX4Iqzlu1851WvgcCPY",
   "start": 489274,
   "end": 21229635,
@@ -28,7 +28,9 @@ logs across regions, each incoming "event" looks something like:
 ```
 
 This exactly what the [dovetail-bytes-lambda](https://github.com/PRX/dovetail-bytes-lambda) logs,
-and tells us which listener-session and arrangement-digest to lookup.
+and tells us which listener-episode and arrangement-digest to lookup.  The kinesis
+data also includes a milliseconds "timestamp" of when the CloudWatch log line was
+logged.
 
 ### Dovetail Arrangements
 
@@ -67,19 +69,22 @@ is created by dovetail when it creates the stitched file, and has the format:
 ### Redis Byte-Ranges
 
 Since there is no guarantee when we'll get each byte-range request event, this
-lambda "pushes" each request onto a list of bytes for each listener-session +
-arrangement-digest. A lua function in the Redis lib accomplishes this. These
-byte ranges also have a TTL so they don't stick around forever.
+lambda "pushes" each request onto a list of bytes for each listener-episode +
+utc-day + arrangement-digest. A lua function in the Redis lib accomplishes this.
+
+Since these are keyed on the UTC day the byte-downloads occurred on, we can
+safely expire them slightly after midnight. When we're fairly sure no straggler
+downloaded-bytes will be coming in over kinesis.
 
 ```
-redis:6379> GET dtcounts:bytes:<listener-session>/<digest>
+redis:6379> GET dtcounts:bytes:<listener-episode>/2019-02-28/<digest>
 "0-1,250289-360548,489274-21229635"
 ```
 
 ## Outputs
 
 After pushing the new byte-range to Redis, we also get back the _complete_ range
-downloaded for that listener-session-digest.  That can be compared to the arrangement to
+downloaded for that listener-episode-day-digest.  That can be compared to the arrangement to
 determine how many total-bytes, and bytes-of-each-segment were downloaded.  After
 a threshold seconds (or a percentage) of the entire file is downloaded, we then log
 that as an IAB-2.0 complaint download.  For segments, we wait for _all_ the bytes
@@ -89,7 +94,7 @@ Since we might receive additional requests _after we've logged a download_, we
 also lock the impression via a redis hash:
 
 ```
-redis:6379> HGETALL dtcounts:imp:<listener-session>/<digest>
+redis:6379> HGETALL dtcounts:imp:<listener-episode>:2019-02-28:<digest>
 1) "0"
 2) ""
 3) "1"
@@ -100,10 +105,28 @@ redis:6379> HGETALL dtcounts:imp:<listener-session>/<digest>
 8) ""
 ```
 
-The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 1 hour. So this lock cannot
-permanently prevent duplicate logged downloads/impressions. It just cuts down
-on the most common dups, since most clients will download an entire file and
-then never use that CDN url again.
+The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 24 hours.  This should prevent
+logging duplicate downloads/impressions until the `<utc-day>` rolls over to the
+next day.
+
+### Digest Cache
+
+Right now, it's possible a listener will download _different arrangements_ of the
+same episode throughout a single utc-day. In this case, we only want to count the
+**first** arrangement-digest we get a complete download/impression for. This is
+accomplished by locking a redis key to the arrangement-digest for that user, for
+24-hours (or `REDIS_IMPRESSION_TTL`):
+
+```
+redis:6379> GET dtcounts:imp:<listener-episode>:2019-02-28
+"<the-arrangement-digest>"
+```
+
+Downloads/impressions against other digests will be logged to kinesis, but they
+will include the flags `{isDuplicate: true, cause: 'digestCache'}`.
+
+**NOTE**: this is likely a temporary measure, if we start locking listeners to
+a single arrangement for the entire 24-hour UTC day.
 
 ### Kinesis missing arrangements stream
 
@@ -117,11 +140,13 @@ The `KINESIS_IMPRESSION_STREAM` is the main output of this function.  These shou
 {
   "type": "bytes",
   "timestamp": 1539206255516,
-  "listenerSession": "some-listener-session",
+  "listenerEpisode": "some-listener-episode",
   "digest": "the-arrangement-digest",
   "bytes": 9999,
   "seconds": 1.84,
-  "percent": 0.65
+  "percent": 0.65,
+  "isDuplicate": true,
+  "cause": "digestCache"
 }
 ```
 
@@ -131,9 +156,11 @@ or
 {
   "type": "segmentbytes",
   "timestamp": 1539206255516,
-  "listenerSession": "some-listener-session",
+  "listenerEpisode": "some-listener-episode",
   "digest": "the-arrangement-digest",
-  "segment": 3
+  "segment": 3,
+  "isDuplicate": true,
+  "cause": "digestCache"
 }
 ```
 
