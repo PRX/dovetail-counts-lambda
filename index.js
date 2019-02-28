@@ -24,14 +24,11 @@ exports.handler = async (event) => {
     // concurrently process each listener-episode+digest+day
     const handlers = decoded.map(async (bytesData) => {
       const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
-      const listenerEpisode = bytesData.le
-      const digest = bytesData.digest
-      const time = bytesData.time
 
       // lookup arrangement
       let arr
       try {
-        arr = await Arrangement.load(digest, redis)
+        arr = await Arrangement.load(bytesData.digest, redis)
       } catch (err) {
         if (err.skippable) {
           log.warn(err)
@@ -53,7 +50,7 @@ exports.handler = async (event) => {
       // start waiting for impressions
       let waiters = []
       if (overallReason) {
-        const imp = {time, listenerEpisode, digest, bytes: total, seconds: totalSeconds, percent: totalPercent}
+        const imp = {...bytesData, bytes: total, seconds: totalSeconds, percent: totalPercent}
         waiters.push(kinesis.putImpressionLock(redis, imp))
       } else {
         waiters.push(false)
@@ -62,7 +59,7 @@ exports.handler = async (event) => {
       // check which segments have been FULLY downloaded
       waiters = waiters.concat(arr.segments.map(async ([firstByte, lastByte], idx) => {
         if (range.complete(firstByte, lastByte)) {
-          const imp = {time, listenerEpisode, digest, segment: idx}
+          const imp = {...bytesData, segment: idx}
           return await kinesis.putImpressionLock(redis, imp)
         } else {
           return false
