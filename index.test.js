@@ -142,6 +142,20 @@ describe('handler', () => {
     })
   })
 
+  it('does not count non-ad segments', async () => {
+    s3.__addArrangement('itest-digest', {version:3, data: {t:'aobisa?', b: [1, 2, 3, 4, 5, 6, 7, 8]}})
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 10})
+
+    const results = await handler()
+    expect(results['itest1/1970-01-01/itest-digest'].overall).toEqual('percent')
+    expect(results['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(8)
+    expect(results['itest1/1970-01-01/itest-digest'].segments).toEqual([true, false, false, false, false, true, false])
+    expect(kinesis.__records.length).toEqual(3)
+    expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
+    expect(kinesis.__records[1]).toMatchObject({type: 'segmentbytes', segment: 0})
+    expect(kinesis.__records[2]).toMatchObject({type: 'segmentbytes', segment: 5})
+  })
+
   it('it warns on bad arrangements', async () => {
     jest.spyOn(log, 'warn').mockImplementation(() => null)
 
