@@ -58,7 +58,7 @@ exports.handler = async (event) => {
 
       // check which segments have been FULLY downloaded
       waiters = waiters.concat(arr.segments.map(async ([firstByte, lastByte], idx) => {
-        if (range.complete(firstByte, lastByte)) {
+        if (arr.isLoggable(idx) && range.complete(firstByte, lastByte)) {
           const imp = {...bytesData, segment: idx}
           return await kinesis.putImpressionLock(redis, imp)
         } else {
