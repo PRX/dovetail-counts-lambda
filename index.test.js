@@ -32,6 +32,21 @@ describe('handler', () => {
     await redis.disconnect()
   })
 
+  it('records whole downloads', async () => {
+    s3.__addArrangement('itest-digest', {"version":3,"data":{"t":"oaoa","b":[703,21643903,22158271,33348223,33530815]}})
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 33530814})
+
+    const results = await handler()
+    expect(Object.keys(results)).toEqual(['itest1/1970-01-01/itest-digest'])
+    expect(results['itest1/1970-01-01/itest-digest'].segments).toEqual([false, true, false, true])
+    expect(results['itest1/1970-01-01/itest-digest'].overall).toEqual('seconds')
+    expect(results['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(33530815 - 703)
+    expect(kinesis.__records.length).toEqual(3)
+    expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
+    expect(kinesis.__records[1]).toMatchObject({type: 'segmentbytes', segment: 1})
+    expect(kinesis.__records[2]).toMatchObject({type: 'segmentbytes', segment: 3})
+  })
+
   it('records empty downloads', async () => {
     s3.__addArrangement('itest-digest', {version:3, data: {t:'aao', b: [10, 20, 30, 40]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 12})
@@ -77,7 +92,7 @@ describe('handler', () => {
       digest: 'itest-digest',
       bytes: 100,
       seconds: 10,
-      percent: 0.4975,
+      percent: 0.5,
     })
   })
 
@@ -108,7 +123,7 @@ describe('handler', () => {
       digest: 'itest-digest',
       bytes: 311,
       seconds: 3.11,
-      percent: 0.7756,
+      percent: 0.7775,
     })
   })
 
@@ -148,7 +163,7 @@ describe('handler', () => {
 
     const results = await handler()
     expect(results['itest1/1970-01-01/itest-digest'].overall).toEqual('percent')
-    expect(results['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(8)
+    expect(results['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(7)
     expect(results['itest1/1970-01-01/itest-digest'].segments).toEqual([true, false, false, false, false, true, false])
     expect(kinesis.__records.length).toEqual(3)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
@@ -166,7 +181,7 @@ describe('handler', () => {
     decoder.__addBytes({le: 'itest3', digest: 'foobar', time: 1, start: 0, end: 100})
 
     const results = await handler()
-    expect(results['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(91)
+    expect(results['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(90)
     expect(log.warn).toHaveBeenCalledTimes(2)
     const warns = log.warn.mock.calls.map(c => c[0].toString()).sort()
     expect(warns[0]).toMatch('ArrangementNoBytesError: Old itest-digest2')
