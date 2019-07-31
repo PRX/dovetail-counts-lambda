@@ -18,6 +18,7 @@ describe('handler', () => {
     redis = new Redis()
     jest.spyOn(log, 'info').mockImplementation(() => null)
     delete process.env.DEFAULT_BITRATE
+    delete process.env.PERCENT_THRESHOLD
     delete process.env.SECONDS_THRESHOLD
   })
 
@@ -125,6 +126,25 @@ describe('handler', () => {
       seconds: 3.11,
       percent: 0.7775,
     })
+  })
+
+  it('defaults to requiring 100% of a short file to be downloaded', async () => {
+    s3.__addArrangement('itest-digest', {version: 3, data: {t: 'o', b: [10, 20]}})
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 11, end: 19, time: 99999})
+
+    const results1 = await handler()
+    expect(results1['itest1/1970-01-01/itest-digest'].overall).toEqual(false)
+    expect(results1['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(9)
+    expect(kinesis.__records.length).toEqual(0)
+
+    decoder.__clearBytes()
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 10, end: 10, time: 99999})
+
+    const results2 = await handler()
+    expect(results2['itest1/1970-01-01/itest-digest'].overall).toEqual('percent')
+    expect(results2['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(10)
+    expect(kinesis.__records.length).toEqual(1)
+    expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
   })
 
   it('does not count segments until they are fully downloaded', async () => {
