@@ -33,7 +33,7 @@ describe('handler', () => {
   })
 
   it('records whole downloads', async () => {
-    s3.__addArrangement('itest-digest', {"version":3,"data":{"t":"oaoa","b":[703,21643903,22158271,33348223,33530815]}})
+    s3.__addArrangement('itest-digest', {version:4, data: {t: 'oaoa', b: [703, 21643903, 22158271, 33348223, 33530815], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 33530814})
 
     const results = await handler()
@@ -48,7 +48,7 @@ describe('handler', () => {
   })
 
   it('records empty downloads', async () => {
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'aao', b: [10, 20, 30, 40]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'aao', b: [10, 20, 30, 40], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 12})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 2, end: 10})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 33, end: 34})
@@ -67,10 +67,10 @@ describe('handler', () => {
   })
 
   it('uses a seconds threshold', async () => {
-    process.env.DEFAULT_BITRATE = 80 // 10 bytes per second
+    const bitrate = 0.080 // 10 bytes per second
     process.env.SECONDS_THRESHOLD = 10
 
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'o', b: [100, 300]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [100, 300], a: [bitrate, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 198, time: 99998})
 
     const results1 = await handler()
@@ -97,10 +97,10 @@ describe('handler', () => {
   })
 
   it('uses a percentage threshold', async () => {
-    process.env.DEFAULT_BITRATE = 800 // 100 bytes per second
+    const bitrate = 0.8 // 100 bytes per second
     process.env.PERCENT_THRESHOLD = 0.5
 
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'oa', b: [100, 400, 500]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'oa', b: [100, 400, 500], a: [bitrate, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 248, time: 99990})
 
     const results1 = await handler()
@@ -128,8 +128,8 @@ describe('handler', () => {
   })
 
   it('does not count segments until they are fully downloaded', async () => {
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'aao', b: [100, 200, 300, 4000]}})
-    s3.__addArrangement('itest-digest2', {version:3, data: {t:'aao', b: [100, 200, 300, 4000]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'aao', b: [100, 200, 300, 4000], a: [128, 1, 44100]}})
+    s3.__addArrangement('itest-digest2', {version: 4, data: {t: 'aao', b: [100, 200, 300, 4000], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 198})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 200, end: 280})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 282, end: 300})
@@ -158,7 +158,7 @@ describe('handler', () => {
   })
 
   it('does not count non-ad segments', async () => {
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'aobisa?', b: [1, 2, 3, 4, 5, 6, 7, 8]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'aobisa?', b: [1, 2, 3, 4, 5, 6, 7, 8], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 10})
 
     const results = await handler()
@@ -174,8 +174,8 @@ describe('handler', () => {
   it('it warns on bad arrangements', async () => {
     jest.spyOn(log, 'warn').mockImplementation(() => null)
 
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'o', b: [10, 100]}})
-    s3.__addArrangement('itest-digest2', {version:2, data: {t:'o', b: [10, 100]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 100], a: [128, 1, 44100]}})
+    s3.__addArrangement('itest-digest2', {version: 2, data: {t: 'o', b: [10, 100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100})
     decoder.__addBytes({le: 'itest2', digest: 'itest-digest2', time: 1, start: 0, end: 100})
     decoder.__addBytes({le: 'itest3', digest: 'foobar', time: 1, start: 0, end: 100})
@@ -201,7 +201,7 @@ describe('handler', () => {
     const err = new RedisConnError('Something bad')
     jest.spyOn(ByteRange, 'load').mockRejectedValue(err)
     jest.spyOn(log, 'error').mockImplementation(() => null)
-    s3.__addArrangement('itest-digest', {version:3, data: {t:'o', b: [10, 100]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 100], a: [128, 2, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100})
     try {
       await handler()
@@ -210,6 +210,30 @@ describe('handler', () => {
       expect(log.error).toHaveBeenCalledTimes(1)
       expect(log.error.mock.calls[0][0].toString()).toMatch('RedisConnError: Something bad')
     }
+  })
+
+  it('uses the default bitrate and warns on v3 arrangements', async () => {
+    process.env.DEFAULT_BITRATE = 80 // 10 bytes per second
+    process.env.SECONDS_THRESHOLD = 10
+
+    s3.__addArrangement('itest-digest', {version: 3, data: {t: 'o', b: [100, 300]}})
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 198, time: 99998})
+
+    const results1 = await handler()
+    expect(results1['itest1/1970-01-01/itest-digest'].overall).toEqual(false)
+    expect(results1['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(99)
+    expect(kinesis.__records.length).toEqual(1)
+    expect(kinesis.__records[0]).toEqual('itest-digest')
+
+    decoder.__clearBytes()
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 199, end: 199, time: 99999})
+
+    const results2 = await handler()
+    expect(results2['itest1/1970-01-01/itest-digest'].overall).toEqual('seconds')
+    expect(results2['itest1/1970-01-01/itest-digest'].overallBytes).toEqual(100)
+    expect(kinesis.__records.length).toEqual(3)
+    expect(kinesis.__records[1]).toEqual('itest-digest')
+    expect(kinesis.__records[2]).toMatchObject({type: 'bytes'})
   })
 
 })
