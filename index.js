@@ -6,7 +6,7 @@ const Redis = require('./lib/redis')
 const Arrangement = require('./lib/arrangement')
 
 const DEFAULT_SECONDS_THRESHOLD = 60
-const DEFAULT_PERCENT_THRESHOLD = 0.5
+const DEFAULT_PERCENT_THRESHOLD = 0.99
 
 /**
  * Process kinesis'd cloudwatch logged bytes-download. Send to BigQuery
