@@ -129,7 +129,7 @@ describe('handler', () => {
   })
 
   it('defaults to requiring 100% of a short file to be downloaded', async () => {
-    s3.__addArrangement('itest-digest', {version: 3, data: {t: 'o', b: [10, 20]}})
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 20], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 11, end: 19, time: 99999})
 
     const results1 = await handler()
