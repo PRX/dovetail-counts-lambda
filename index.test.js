@@ -3,7 +3,7 @@ const { handler } = require('./index')
 const { BadEventError, RedisConnError } = require('./lib/errors')
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/kinesis-decoder')
-const Redis = require('./lib/redis')
+const RedisBackup = require('./lib/redis-backup')
 const s3 = require('./lib/s3')
 const kinesis = require('./lib/kinesis')
 
@@ -15,7 +15,7 @@ describe('handler', () => {
 
   let redis
   beforeEach(() => {
-    redis = new Redis()
+    redis = new RedisBackup()
     jest.spyOn(log, 'info').mockImplementation(() => null)
     delete process.env.DEFAULT_BITRATE
     delete process.env.PERCENT_THRESHOLD
