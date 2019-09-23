@@ -2,7 +2,7 @@ const log = require('lambda-log')
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/kinesis-decoder')
 const kinesis = require('./lib/kinesis')
-const Redis = require('./lib/redis')
+const RedisBackup = require('./lib/redis-backup')
 const Arrangement = require('./lib/arrangement')
 
 const DEFAULT_SECONDS_THRESHOLD = 60
@@ -15,7 +15,7 @@ exports.handler = async (event) => {
   let redis
   try {
     const decoded = await decoder.decodeEvent(event)
-    redis = new Redis()
+    redis = new RedisBackup()
 
     // thresholds (these apply only to the file as a whole)
     const minSeconds = parseInt(process.env.SECONDS_THRESHOLD) || DEFAULT_SECONDS_THRESHOLD
