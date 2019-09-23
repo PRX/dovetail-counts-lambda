@@ -15,7 +15,7 @@ describe('handler', () => {
 
   let redis
   beforeEach(() => {
-    redis = new RedisBackup()
+    redis = new RedisBackup(process.env.REDIS_URL)
     jest.spyOn(log, 'info').mockImplementation(() => null)
     delete process.env.DEFAULT_BITRATE
     delete process.env.PERCENT_THRESHOLD
@@ -31,6 +31,22 @@ describe('handler', () => {
     await redis.nuke('dtcounts:bytes:itest*')
     await redis.nuke('dtcounts:imp:itest*')
     await redis.disconnect()
+  })
+
+  it('requires a redis url', async () => {
+    const oldEnv = process.env.REDIS_URL
+    try {
+      jest.spyOn(log, 'error').mockImplementation(() => null)
+      process.env.REDIS_URL = ''
+      await handler()
+      fail('should have gotten an error')
+    } catch (err) {
+      expect(err.name).toEqual('MissingEnvError')
+      expect(err.message).toMatch(/REDIS_URL/i)
+      expect(err.retryable).toEqual(true)
+    } finally {
+      process.env.REDIS_URL = oldEnv
+    }
   })
 
   it('records whole downloads', async () => {
