@@ -27,8 +27,12 @@ exports.handler = async (event) => {
     const minSeconds = parseInt(process.env.SECONDS_THRESHOLD) || DEFAULT_SECONDS_THRESHOLD
     const minPercent = parseFloat(process.env.PERCENT_THRESHOLD) || DEFAULT_PERCENT_THRESHOLD
 
+    // kinesis impressions to be logged in batch
+    const kinesisOverall = []
+    const kinesisSegments = []
+
     // concurrently process each listener-episode+digest+day
-    const handlers = decoded.map(async (bytesData) => {
+    await Promise.all(decoded.map(async (bytesData) => {
       const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
 
       // lookup arrangement
@@ -49,51 +53,33 @@ exports.handler = async (event) => {
       const total = bytesDownloaded.reduce((a, b) => a + b, 0)
       const totalSeconds = arr.bytesToSeconds(total)
       const totalPercent = arr.bytesToPercent(total)
-      const hasSeconds = totalSeconds >= minSeconds
-      const hasPercent = totalPercent >= minPercent
-      const overallReason = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
-
-      // start waiting for impressions
-      let waiters = []
-      if (overallReason) {
-        const imp = {...bytesData, bytes: total, seconds: totalSeconds, percent: totalPercent}
-        waiters.push(kinesis.putImpressionLock(redis, imp))
-      } else {
-        waiters.push(false)
+      if (totalSeconds >= minSeconds || totalPercent >= minPercent) {
+        kinesisOverall.push({...bytesData, bytes: total, seconds: totalSeconds, percent: totalPercent})
       }
 
       // check which segments have been FULLY downloaded
-      waiters = waiters.concat(arr.segments.map(async ([firstByte, lastByte], idx) => {
+      arr.segments.forEach(([firstByte, lastByte], idx) => {
         if (arr.isLoggable(idx) && range.complete(firstByte, lastByte)) {
-          const imp = {...bytesData, segment: idx}
-          return await kinesis.putImpressionLock(redis, imp)
-        } else {
-          return false
+          kinesisSegments.push({...bytesData, segment: idx})
         }
-      }))
+      })
+    }))
 
-      const [overallImpression, ...segmentImpressions] = await Promise.all(waiters)
-      return {
-        segments: segmentImpressions,
-        overall: overallImpression ? overallReason : false,
-        overallBytes: total,
-      }
-    })
+    // put kinesis records in batch (TODO: combine these somehow, and still get the counts)
+    const overall = await kinesis.putWithLock(redis, kinesisOverall)
+    const segments = await kinesis.putWithLock(redis, kinesisSegments)
 
     // log results
-    const handled = await Promise.all(handlers)
-    const results = handled.filter(r => r)
-    const countOverall = results.filter(r => r.overall).length
-    const countSegments = results.map(r => r.segments.filter(s => s).length).reduce((a, b) => a + b, 0)
-    const info = {overall: countOverall, segments: countSegments, keys: decoded.length}
-    log.info(`Sent ${countOverall} overall / ${countSegments} segments`, info)
-    if (handled.length > results.length) {
-      log.info(`Skipped ${handled.length - results.length}`)
+    const skipped = (kinesisOverall.length - overall) + (kinesisSegments.length - segments)
+    const info = {overall, segments, keys: decoded.length}
+    log.info(`Sent ${overall} overall / ${segments} segments`, info)
+    if (skipped > 0) {
+      log.info(`Skipped ${skipped}`)
     }
 
     // return all processed, for easy testing
     redis.disconnect().catch(err => null)
-    return results.reduce((map, r, i) => { map[decoded[i].id] = r; return map }, {})
+    return overall + segments
   } catch (err) {
     if (redis) {
       redis.disconnect().catch(err => null)
