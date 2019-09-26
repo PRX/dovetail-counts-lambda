@@ -53,7 +53,7 @@ describe('handler', () => {
     s3.__addArrangement('itest-digest', {version:4, data: {t: 'oaoa', b: [703, 21643903, 22158271, 33348223, 33530815], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 33530814})
 
-    expect(await handler()).toEqual(3)
+    expect(await handler()).toMatchObject({overall: 1, segments: 2})
     expect(kinesis.__records.length).toEqual(3)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
     expect(kinesis.__records[1]).toMatchObject({type: 'segmentbytes', segment: 1})
@@ -68,7 +68,7 @@ describe('handler', () => {
     decoder.__addBytes({le: 'itest2', digest: 'itest-digest', time: 1, start: 22, end: 25})
     decoder.__addBytes({le: 'itest2', digest: 'itest-digest', time: 1, start: 0, end: 4})
 
-    expect(await handler()).toEqual(0)
+    expect(await handler()).toMatchObject({overall: 0, segments: 0})
     expect(kinesis.__records.length).toEqual(0)
   })
 
@@ -79,13 +79,13 @@ describe('handler', () => {
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [100, 300], a: [bitrate, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 198, time: 99998})
 
-    expect(await handler()).toEqual(0)
+    expect(await handler()).toMatchObject({overall: 0})
     expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 199, end: 199, time: 99999})
 
-    expect(await handler()).toEqual(1)
+    expect(await handler()).toMatchObject({overall: 1})
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toEqual({
       type: 'bytes',
@@ -105,14 +105,14 @@ describe('handler', () => {
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'oa', b: [100, 400, 500], a: [bitrate, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 248, time: 99990})
 
-    expect(await handler()).toEqual(0)
+    expect(await handler()).toMatchObject({overall: 0})
     expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 399, end: 411, time: 99994})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 100, end: 397, time: 99991})
 
-    expect(await handler()).toEqual(1)
+    expect(await handler()).toMatchObject({overall: 1})
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toEqual({
       type: 'bytes',
@@ -129,13 +129,13 @@ describe('handler', () => {
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 20], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 11, end: 19, time: 99999})
 
-    expect(await handler()).toEqual(0)
+    expect(await handler()).toMatchObject({overall: 0})
     expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 10, end: 10, time: 99999})
 
-    expect(await handler()).toEqual(1)
+    expect(await handler()).toMatchObject({overall: 1})
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
   })
@@ -147,7 +147,7 @@ describe('handler', () => {
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 200, end: 280})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 282, end: 300})
 
-    expect(await handler()).toEqual(0)
+    expect(await handler()).toMatchObject({overall: 0, segments: 0})
     expect(kinesis.__records.length).toEqual(0)
 
     decoder.__clearBytes()
@@ -155,7 +155,7 @@ describe('handler', () => {
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest2', time: 1, start: 199, end: 199})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 281, end: 281})
 
-    expect(await handler()).toEqual(1)
+    expect(await handler()).toMatchObject({overall: 0, segments: 1})
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toEqual({
       type: 'segmentbytes',
@@ -170,7 +170,7 @@ describe('handler', () => {
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'aobisa?', b: [1, 2, 3, 4, 5, 6, 7, 8], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 10})
 
-    expect(await handler()).toEqual(3)
+    expect(await handler()).toMatchObject({overall: 1, segments: 2})
     expect(kinesis.__records.length).toEqual(3)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
     expect(kinesis.__records[1]).toMatchObject({type: 'segmentbytes', segment: 0})
@@ -186,7 +186,7 @@ describe('handler', () => {
     decoder.__addBytes({le: 'itest2', digest: 'itest-digest2', time: 1, start: 0, end: 100})
     decoder.__addBytes({le: 'itest3', digest: 'foobar', time: 1, start: 0, end: 100})
 
-    expect(await handler()).toEqual(1)
+    expect(await handler()).toMatchObject({overall: 1, segments: 0})
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes', listenerEpisode: 'itest1'})
     expect(log.warn).toHaveBeenCalledTimes(2)
@@ -199,7 +199,7 @@ describe('handler', () => {
     const err = new BadEventError('Something bad')
     jest.spyOn(decoder, 'decodeEvent').mockRejectedValue(err)
     jest.spyOn(log, 'error').mockImplementation(() => null)
-    expect(await handler()).toEqual(false)
+    expect(await handler()).toEqual(null)
     expect(log.error).toHaveBeenCalledTimes(1)
     expect(log.error.mock.calls[0][0].toString()).toMatch('BadEventError: Something bad')
   })
@@ -227,7 +227,7 @@ describe('handler', () => {
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 198, time: 99998})
 
     jest.spyOn(log, 'warn').mockImplementation()
-    expect(await handler()).toEqual(0)
+    expect(await handler()).toMatchObject({overall: 0, segments: 0})
     expect(log.warn).toHaveBeenCalledTimes(1)
     expect(log.warn.mock.calls[0][0]).toEqual('Non v4 arrangement')
     expect(log.warn.mock.calls[0][1]).toEqual({digest: 'itest-digest'})
@@ -235,12 +235,29 @@ describe('handler', () => {
     decoder.__clearBytes()
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 199, end: 199, time: 99999})
 
-    expect(await handler()).toEqual(1)
+    expect(await handler()).toMatchObject({overall: 1, segments: 0})
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
     expect(log.warn).toHaveBeenCalledTimes(2)
     expect(log.warn.mock.calls[1][0]).toEqual('Non v4 arrangement')
     expect(log.warn.mock.calls[1][1]).toEqual({digest: 'itest-digest'})
+  })
+
+  it('throws a retryable error on kinesis put failure', async () => {
+    jest.spyOn(kinesis, 'putWithLock').mockImplementation(async () => {
+      return {failed: 1}
+    })
+    jest.spyOn(log, 'error').mockImplementation(() => null)
+
+    s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 20], a: [128, 1, 44100]}})
+    decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 19, time: 99999})
+    try {
+      await handler()
+      fail('should have gotten an error')
+    } catch (err) {
+      expect(log.error).toHaveBeenCalledTimes(1)
+      expect(log.error.mock.calls[0][0].toString()).toMatch('Failed to put 1')
+    }
   })
 
 })
