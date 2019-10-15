@@ -4,7 +4,7 @@ const decoder = require('./lib/kinesis-decoder')
 const kinesis = require('./lib/kinesis')
 const RedisBackup = require('./lib/redis-backup')
 const Arrangement = require('./lib/arrangement')
-const { MissingEnvError } = require('./lib/errors')
+const { MissingEnvError, KinesisPutError } = require('./lib/errors')
 
 const DEFAULT_SECONDS_THRESHOLD = 60
 const DEFAULT_PERCENT_THRESHOLD = 0.99
@@ -27,8 +27,11 @@ exports.handler = async (event) => {
     const minSeconds = parseInt(process.env.SECONDS_THRESHOLD) || DEFAULT_SECONDS_THRESHOLD
     const minPercent = parseFloat(process.env.PERCENT_THRESHOLD) || DEFAULT_PERCENT_THRESHOLD
 
+    // kinesis downloads/impressions to be logged in batch
+    const kinesisRecords = []
+
     // concurrently process each listener-episode+digest+day
-    const handlers = decoded.map(async (bytesData) => {
+    await Promise.all(decoded.map(async (bytesData) => {
       const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
 
       // lookup arrangement
@@ -49,51 +52,31 @@ exports.handler = async (event) => {
       const total = bytesDownloaded.reduce((a, b) => a + b, 0)
       const totalSeconds = arr.bytesToSeconds(total)
       const totalPercent = arr.bytesToPercent(total)
-      const hasSeconds = totalSeconds >= minSeconds
-      const hasPercent = totalPercent >= minPercent
-      const overallReason = hasSeconds ? 'seconds' : (hasPercent ? 'percent' : false)
-
-      // start waiting for impressions
-      let waiters = []
-      if (overallReason) {
-        const imp = {...bytesData, bytes: total, seconds: totalSeconds, percent: totalPercent}
-        waiters.push(kinesis.putImpressionLock(redis, imp))
-      } else {
-        waiters.push(false)
+      if (totalSeconds >= minSeconds || totalPercent >= minPercent) {
+        kinesisRecords.push({...bytesData, bytes: total, seconds: totalSeconds, percent: totalPercent})
       }
 
       // check which segments have been FULLY downloaded
-      waiters = waiters.concat(arr.segments.map(async ([firstByte, lastByte], idx) => {
+      arr.segments.forEach(([firstByte, lastByte], idx) => {
         if (arr.isLoggable(idx) && range.complete(firstByte, lastByte)) {
-          const imp = {...bytesData, segment: idx}
-          return await kinesis.putImpressionLock(redis, imp)
-        } else {
-          return false
+          kinesisRecords.push({...bytesData, segment: idx})
         }
-      }))
+      })
+    }))
 
-      const [overallImpression, ...segmentImpressions] = await Promise.all(waiters)
-      return {
-        segments: segmentImpressions,
-        overall: overallImpression ? overallReason : false,
-        overallBytes: total,
-      }
-    })
+    // put kinesis records in batch
+    const results = await kinesis.putWithLock(redis, kinesisRecords)
 
-    // log results
-    const handled = await Promise.all(handlers)
-    const results = handled.filter(r => r)
-    const countOverall = results.filter(r => r.overall).length
-    const countSegments = results.map(r => r.segments.filter(s => s).length).reduce((a, b) => a + b, 0)
-    const info = {overall: countOverall, segments: countSegments, keys: decoded.length}
-    log.info(`Sent ${countOverall} overall / ${countSegments} segments`, info)
-    if (handled.length > results.length) {
-      log.info(`Skipped ${handled.length - results.length}`)
+    // log results, throw a retryable error for any failures
+    const info = {...results, keys: decoded.length}
+    log.info(`Sent ${results.overall} overall / ${results.segments} segments`, results)
+    if (results.failed > 0) {
+      throw new KinesisPutError(`Failed to put ${results.failed} kinesis records`)
     }
 
-    // return all processed, for easy testing
+    // return counts, for easy testing
     redis.disconnect().catch(err => null)
-    return results.reduce((map, r, i) => { map[decoded[i].id] = r; return map }, {})
+    return results
   } catch (err) {
     if (redis) {
       redis.disconnect().catch(err => null)
@@ -103,7 +86,7 @@ exports.handler = async (event) => {
       throw err
     } else {
       log.error(err)
-      return false
+      return null
     }
   }
 }
