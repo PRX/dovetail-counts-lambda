@@ -5,6 +5,9 @@ env:
     PRX_LAMBDA_CODE_CONFIG_PARAMETERS: "DovetailCountsLambdaCodeS3ObjectVersion"
     PRX_LAMBDA_ARCHIVE_BUILD_PATH: "/app/build.zip"
 phases:
+  install:
+    runtime-versions:
+      docker: 18
   build:
     commands:
       - "cd $(ls -d */|head -n 1)"
