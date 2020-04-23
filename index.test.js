@@ -166,15 +166,19 @@ describe('handler', () => {
     })
   })
 
-  it('does not count non-ad segments', async () => {
+  it('does not count original segments', async () => {
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'aobisa?', b: [1, 2, 3, 4, 5, 6, 7, 8], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 10})
 
-    expect(await handler()).toMatchObject({overall: 1, segments: 2})
-    expect(kinesis.__records.length).toEqual(3)
+    expect(await handler()).toMatchObject({overall: 1, segments: 6})
+    expect(kinesis.__records.length).toEqual(7)
     expect(kinesis.__records[0]).toMatchObject({type: 'bytes'})
     expect(kinesis.__records[1]).toMatchObject({type: 'segmentbytes', segment: 0})
-    expect(kinesis.__records[2]).toMatchObject({type: 'segmentbytes', segment: 5})
+    expect(kinesis.__records[2]).toMatchObject({type: 'segmentbytes', segment: 2})
+    expect(kinesis.__records[3]).toMatchObject({type: 'segmentbytes', segment: 3})
+    expect(kinesis.__records[4]).toMatchObject({type: 'segmentbytes', segment: 4})
+    expect(kinesis.__records[5]).toMatchObject({type: 'segmentbytes', segment: 5})
+    expect(kinesis.__records[6]).toMatchObject({type: 'segmentbytes', segment: 6})
   })
 
   it('it warns on bad arrangements', async () => {
