@@ -1,4 +1,5 @@
 const log = require('lambda-log')
+log.options.dynamicMeta = msg => msg && msg._error ? {errorName: msg._error.name} : {}
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/kinesis-decoder')
 const kinesis = require('./lib/kinesis')
@@ -82,7 +83,7 @@ exports.handler = async (event) => {
       redis.disconnect().catch(err => null)
     }
     if (err.retryable) {
-      log.error(err)
+      log.warn(err)
       throw err
     } else {
       log.error(err)
