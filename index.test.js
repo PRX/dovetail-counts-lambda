@@ -36,7 +36,7 @@ describe('handler', () => {
   it('requires a redis url', async () => {
     const oldEnv = process.env.REDIS_URL
     try {
-      jest.spyOn(log, 'error').mockImplementation(() => null)
+      jest.spyOn(log, 'warn').mockImplementation(() => null)
       process.env.REDIS_URL = ''
       await handler()
       fail('should have gotten an error')
@@ -211,15 +211,15 @@ describe('handler', () => {
   it('throws and retries redis errors', async () => {
     const err = new RedisConnError('Something bad')
     jest.spyOn(ByteRange, 'load').mockRejectedValue(err)
-    jest.spyOn(log, 'error').mockImplementation(() => null)
+    jest.spyOn(log, 'warn').mockImplementation(() => null)
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 100], a: [128, 2, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100})
     try {
       await handler()
       fail('should have gotten an error')
     } catch (err) {
-      expect(log.error).toHaveBeenCalledTimes(1)
-      expect(log.error.mock.calls[0][0].toString()).toMatch('RedisConnError: Something bad')
+      expect(log.warn).toHaveBeenCalledTimes(1)
+      expect(log.warn.mock.calls[0][0].toString()).toMatch('RedisConnError: Something bad')
     }
   })
 
@@ -251,7 +251,7 @@ describe('handler', () => {
     jest.spyOn(kinesis, 'putWithLock').mockImplementation(async () => {
       return {failed: 1}
     })
-    jest.spyOn(log, 'error').mockImplementation(() => null)
+    jest.spyOn(log, 'warn').mockImplementation(() => null)
 
     s3.__addArrangement('itest-digest', {version: 4, data: {t: 'o', b: [10, 20], a: [128, 1, 44100]}})
     decoder.__addBytes({le: 'itest1', digest: 'itest-digest', start: 0, end: 19, time: 99999})
@@ -259,8 +259,8 @@ describe('handler', () => {
       await handler()
       fail('should have gotten an error')
     } catch (err) {
-      expect(log.error).toHaveBeenCalledTimes(1)
-      expect(log.error.mock.calls[0][0].toString()).toMatch('Failed to put 1')
+      expect(log.warn).toHaveBeenCalledTimes(1)
+      expect(log.warn.mock.calls[0][0].toString()).toMatch('Failed to put 1')
     }
   })
 
