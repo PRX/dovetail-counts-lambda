@@ -72,7 +72,7 @@ exports.handler = async (event) => {
     const info = {...results, keys: decoded.length}
     log.info(`Sent ${results.overall} overall / ${results.segments} segments`, results)
     if (results.failed > 0) {
-      throw new KinesisPutError(`Failed to put ${results.failed} kinesis records`)
+      throw new KinesisPutError(`Failed to put ${results.failed} kinesis records`, results.failed)
     }
 
     // return counts, for easy testing
@@ -83,7 +83,11 @@ exports.handler = async (event) => {
       redis.disconnect().catch(err => null)
     }
     if (err.retryable) {
-      log.warn(err)
+      if (err.count) {
+        log.warn(err, {count: err.count})
+      } else {
+        log.warn(err)
+      }
       throw err
     } else {
       log.error(err)

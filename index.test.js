@@ -261,6 +261,7 @@ describe('handler', () => {
     } catch (err) {
       expect(log.warn).toHaveBeenCalledTimes(1)
       expect(log.warn.mock.calls[0][0].toString()).toMatch('Failed to put 1')
+      expect(log.warn.mock.calls[0][1]).toEqual({count: 1})
     }
   })
 
