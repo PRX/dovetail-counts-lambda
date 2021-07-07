@@ -33,12 +33,22 @@
   "devDependencies": {
     "aws-sdk": "^2.912.0",
     "dotenv": "^10.0.0",
-    "jest": "^26.6.3"
+    "jest": "^26.6.3",
+    "prettier": "^2.3.2"
   },
   "jest": {
     "globalSetup": "<rootDir>/test-setup.js",
     "modulePathIgnorePatterns": [
       "<rootDir>/build/"
     ]
+  },
+  "prettier": {
+    "printWidth": 100,
+    "semi": false,
+    "trailingComma": "all",
+    "useTabs": false,
+    "endOfLine": "lf",
+    "singleQuote": true,
+    "arrowParens": "avoid"
   }
 }
