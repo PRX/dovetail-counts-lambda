@@ -1,5 +1,5 @@
 const log = require('lambda-log')
-log.options.dynamicMeta = msg => msg && msg._error ? {errorName: msg._error.name} : {}
+log.options.dynamicMeta = msg => (msg && msg._error ? { errorName: msg._error.name } : {})
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/kinesis-decoder')
 const kinesis = require('./lib/kinesis')
@@ -13,7 +13,7 @@ const DEFAULT_PERCENT_THRESHOLD = 0.99
 /**
  * Process kinesis'd cloudwatch logged bytes-download. Send to BigQuery
  */
-exports.handler = async (event) => {
+exports.handler = async event => {
   let redis
   try {
     const decoded = await decoder.decodeEvent(event)
@@ -32,44 +32,51 @@ exports.handler = async (event) => {
     const kinesisRecords = []
 
     // concurrently process each listener-episode+digest+day
-    await Promise.all(decoded.map(async (bytesData) => {
-      const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
+    await Promise.all(
+      decoded.map(async bytesData => {
+        const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
 
-      // lookup arrangement
-      let arr
-      try {
-        arr = await Arrangement.load(bytesData.digest, redis)
-      } catch (err) {
-        if (err.skippable) {
-          log.warn(err)
-          return false
-        } else {
-          throw err
+        // lookup arrangement
+        let arr
+        try {
+          arr = await Arrangement.load(bytesData.digest, redis)
+        } catch (err) {
+          if (err.skippable) {
+            log.warn(err)
+            return false
+          } else {
+            throw err
+          }
         }
-      }
 
-      // check if the file-as-a-whole has been downloaded
-      const bytesDownloaded = arr.segments.map(s => range.intersect(s))
-      const total = bytesDownloaded.reduce((a, b) => a + b, 0)
-      const totalSeconds = arr.bytesToSeconds(total)
-      const totalPercent = arr.bytesToPercent(total)
-      if (totalSeconds >= minSeconds || totalPercent >= minPercent) {
-        kinesisRecords.push({...bytesData, bytes: total, seconds: totalSeconds, percent: totalPercent})
-      }
-
-      // check which segments have been FULLY downloaded
-      arr.segments.forEach(([firstByte, lastByte], idx) => {
-        if (arr.isLoggable(idx) && range.complete(firstByte, lastByte)) {
-          kinesisRecords.push({...bytesData, segment: idx})
+        // check if the file-as-a-whole has been downloaded
+        const bytesDownloaded = arr.segments.map(s => range.intersect(s))
+        const total = bytesDownloaded.reduce((a, b) => a + b, 0)
+        const totalSeconds = arr.bytesToSeconds(total)
+        const totalPercent = arr.bytesToPercent(total)
+        if (totalSeconds >= minSeconds || totalPercent >= minPercent) {
+          kinesisRecords.push({
+            ...bytesData,
+            bytes: total,
+            seconds: totalSeconds,
+            percent: totalPercent,
+          })
         }
-      })
-    }))
+
+        // check which segments have been FULLY downloaded
+        arr.segments.forEach(([firstByte, lastByte], idx) => {
+          if (arr.isLoggable(idx) && range.complete(firstByte, lastByte)) {
+            kinesisRecords.push({ ...bytesData, segment: idx })
+          }
+        })
+      }),
+    )
 
     // put kinesis records in batch
     const results = await kinesis.putWithLock(redis, kinesisRecords)
 
     // log results, throw a retryable error for any failures
-    const info = {...results, keys: decoded.length}
+    const info = { ...results, keys: decoded.length }
     log.info(`Sent ${results.overall} overall / ${results.segments} segments`, results)
     if (results.failed > 0) {
       throw new KinesisPutError(`Failed to put ${results.failed} kinesis records`, results.failed)
@@ -84,7 +91,7 @@ exports.handler = async (event) => {
     }
     if (err.retryable) {
       if (err.count) {
-        log.warn(err, {count: err.count})
+        log.warn(err, { count: err.count })
       } else {
         log.warn(err)
       }
