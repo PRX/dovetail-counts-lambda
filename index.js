@@ -1,7 +1,7 @@
 const log = require('lambda-log')
 log.options.dynamicMeta = msg => (msg && msg._error ? { errorName: msg._error.name } : {})
 const ByteRange = require('./lib/byte-range')
-const decoder = require('./lib/kinesis-decoder')
+const decoder = require('./lib/decoder')
 const kinesis = require('./lib/kinesis')
 const RedisBackup = require('./lib/redis-backup')
 const Arrangement = require('./lib/arrangement')
