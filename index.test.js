@@ -4,10 +4,12 @@ const { BadEventError, RedisConnError } = require('./lib/errors')
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/decoder')
 const RedisBackup = require('./lib/redis-backup')
+const dynamo = require('./lib/dynamo')
 const s3 = require('./lib/s3')
 const kinesis = require('./lib/kinesis')
 
 jest.mock('./lib/decoder')
+jest.mock('./lib/dynamo')
 jest.mock('./lib/s3')
 jest.mock('./lib/kinesis')
 
@@ -24,6 +26,7 @@ describe('handler', () => {
   afterEach(async () => {
     jest.restoreAllMocks()
     decoder.__clearBytes()
+    dynamo.__clearArrangements()
     s3.__clearArrangements()
     kinesis.__clearRecords()
     await redis.nuke('dtcounts:s3:itest*')
@@ -202,6 +205,21 @@ describe('handler', () => {
     expect(kinesis.__records[4]).toMatchObject({ type: 'segmentbytes', segment: 4 })
     expect(kinesis.__records[5]).toMatchObject({ type: 'segmentbytes', segment: 5 })
     expect(kinesis.__records[6]).toMatchObject({ type: 'segmentbytes', segment: 6 })
+  })
+
+  it('allows dynamodb arrangements', async () => {
+    jest.spyOn(log, 'warn').mockImplementation(() => null)
+
+    dynamo.__addArrangement('itest-digest', {
+      version: 4,
+      data: { t: 'o', b: [10, 100], a: [128, 1, 44100] },
+    })
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100 })
+
+    expect(await handler()).toMatchObject({ overall: 1, segments: 0 })
+    expect(kinesis.__records.length).toEqual(1)
+    expect(kinesis.__records[0]).toMatchObject({ type: 'bytes', listenerEpisode: 'itest1' })
+    expect(log.warn).toHaveBeenCalledTimes(0)
   })
 
   it('it warns on bad arrangements', async () => {
