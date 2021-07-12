@@ -31,6 +31,9 @@ exports.handler = async event => {
     // kinesis downloads/impressions to be logged in batch
     const kinesisRecords = []
 
+    // only assumerole once for dynamodb access
+    const ddbClient = await dynamo.client()
+
     // concurrently process each listener-episode+digest+day
     await Promise.all(
       decoded.map(async bytesData => {
@@ -39,7 +42,7 @@ exports.handler = async event => {
         // lookup arrangement
         let arr
         try {
-          arr = await Arrangement.load(bytesData.digest, redis)
+          arr = await Arrangement.load(bytesData.digest, redis, ddbClient)
         } catch (err) {
           if (err.skippable) {
             log.warn(err)
