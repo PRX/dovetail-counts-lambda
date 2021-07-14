@@ -35,12 +35,17 @@ logged.
 ### Dovetail Arrangements
 
 To find the arrangement of files that made up this mp3, we look in the S3
-bucket `s3://${S3_BUCKET}/${S3_PREFIX}/_arrangements/${DIGEST}.json`. This file
-is created by dovetail when it creates the stitched file, and has the format:
+bucket `s3://${S3_BUCKET}/${S3_PREFIX}/_arrangements/${DIGEST}.json` or in a
+DynamoDB arrangements table
+
+configured by the
+This json is set by either the [dovetail-stitch-lambda](https://github.com/PRX/dovetail-stitch-lambda)
+or the [dovetail-cdn-arranger](https://github.com/PRX/dovetail-cdn-arranger)
+when it creates the stitched file, and has the format:
 
 ```
 {
-  "version": 3,
+  "version": 4,
   "data": {
     "f": [
       "https://f.prxu.org/70/d87b79c6-734b-4022-b4ac-4c7da706a505/31f4ddc8-7f66-42a7-91aa-33a2202ce94f.mp3",
@@ -52,6 +57,7 @@ is created by dovetail when it creates the stitched file, and has the format:
       "http://static.adzerk.net/Advertisers/b4c8dde093294f388b59e94540876345.mp3"
     ],
     "t": "oaaaooi",
+    "a": {"f": "mp3", "b": 128, "c": 2, "s": 44100},
     "b": [
       81204,
       165841,
@@ -127,10 +133,6 @@ will include the flags `{isDuplicate: true, cause: 'digestCache'}`.
 
 **NOTE**: this is likely a temporary measure, if we start locking listeners to
 a single arrangement for the entire 24-hour UTC day.
-
-### Kinesis missing arrangements stream
-
-The `KINESIS_ARRANGEMENT_STREAM` ENV is (probably) temporary.  When configured, the lambda will push any non-v3 arrangement digests onto the stream.  Then some other processor can ping the dovetail-stitch-lambda, which does the actual work of calculating the segment-bytes of the arrangement and uploading the v3 json to S3.
 
 ### Kinesis Impressions stream
 
