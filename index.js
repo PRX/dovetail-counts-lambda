@@ -35,23 +35,36 @@ exports.handler = async event => {
     // only assumerole once for dynamodb access
     const ddbClient = await dynamo.client()
 
+    // concurrently lookup arrangement json
+    const digests = decoded.map(d => d.digest).reduce((acc, d) => ({ ...acc, [d]: null }), {})
+    const loadArrangements = Object.keys(digests).map(async digest => {
+      try {
+        digests[digest] = await Arrangement.load(digest, redis, ddbClient)
+      } catch (err) {
+        if (err.skippable) {
+          log.warn(err)
+        } else {
+          throw err
+        }
+      }
+    })
+    await Promise.all(loadArrangements)
+
+    // filter/warn missing arrangements
+    // TODO: some limited retrying when we go to global DDB tables
+    const readyBytes = decoded.filter(bytesData => {
+      if (digests[bytesData.digest]) {
+        return true
+      } else {
+        log.warn('Skipping byte', { byte: bytesData })
+      }
+    })
+
     // concurrently process each listener-episode+digest+day
     await Promise.all(
-      decoded.map(async bytesData => {
+      readyBytes.map(async bytesData => {
         const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
-
-        // lookup arrangement
-        let arr
-        try {
-          arr = await Arrangement.load(bytesData.digest, redis, ddbClient)
-        } catch (err) {
-          if (err.skippable) {
-            log.warn(err)
-            return false
-          } else {
-            throw err
-          }
-        }
+        const arr = digests[bytesData.digest]
 
         // check if the file-as-a-whole has been downloaded
         const bytesDownloaded = arr.segments.map(s => range.intersect(s))

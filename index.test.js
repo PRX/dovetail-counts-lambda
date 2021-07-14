@@ -1,6 +1,7 @@
 const log = require('lambda-log')
 const { handler } = require('./index')
-const { BadEventError, RedisConnError } = require('./lib/errors')
+const { BadEventError, DynamodbGetError, RedisConnError } = require('./lib/errors')
+const Arrangement = require('./lib/arrangement')
 const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/decoder')
 const RedisBackup = require('./lib/redis-backup')
@@ -237,10 +238,13 @@ describe('handler', () => {
     expect(await handler()).toMatchObject({ overall: 1, segments: 0 })
     expect(kinesis.__records.length).toEqual(1)
     expect(kinesis.__records[0]).toMatchObject({ type: 'bytes', listenerEpisode: 'itest1' })
-    expect(log.warn).toHaveBeenCalledTimes(2)
+    expect(log.warn).toHaveBeenCalledTimes(4)
+
     const warns = log.warn.mock.calls.map(c => c[0].toString()).sort()
     expect(warns[0]).toMatch('ArrangementNoBytesError: Old itest-digest2')
     expect(warns[1]).toMatch('ArrangementNotFoundError: Missing foobar')
+    expect(warns[2]).toMatch('Skipping byte')
+    expect(warns[3]).toMatch('Skipping byte')
   })
 
   it('handles event parsing errors', async () => {
@@ -267,6 +271,21 @@ describe('handler', () => {
     } catch (err) {
       expect(log.warn).toHaveBeenCalledTimes(1)
       expect(log.warn.mock.calls[0][0].toString()).toMatch('RedisConnError: Something bad')
+    }
+  })
+
+  it('throws and retries ddb errors', async () => {
+    const err = new DynamodbGetError('Something bad')
+    jest.spyOn(Arrangement, 'load').mockRejectedValue(err)
+    jest.spyOn(log, 'warn').mockImplementation(() => null)
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100 })
+    try {
+      await handler()
+      fail('should have gotten an error')
+    } catch (err) {
+      expect(log.warn).toHaveBeenCalledTimes(1)
+      expect(log.warn.mock.calls[0][0].toString()).toMatch('DynamodbGetError: Something bad')
+      expect(err.toString()).toMatch('DynamodbGetError: Something bad')
     }
   })
 
