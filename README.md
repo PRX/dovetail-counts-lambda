@@ -28,7 +28,7 @@ logs across regions, each incoming "event" looks something like:
 ```
 
 This exactly what the [dovetail-bytes-lambda](https://github.com/PRX/dovetail-bytes-lambda) logs,
-and tells us which listener-episode and arrangement-digest to lookup.  The kinesis
+and tells us which listener-episode and arrangement-digest to lookup. The kinesis
 data also includes a milliseconds "timestamp" of when the CloudWatch log line was
 logged.
 
@@ -36,10 +36,9 @@ logged.
 
 To find the arrangement of files that made up this mp3, we look in the S3
 bucket `s3://${S3_BUCKET}/${S3_PREFIX}/_arrangements/${DIGEST}.json` or in a
-DynamoDB arrangements table
+DynamoDB arrangements table configured by the `ARRANGEMENTS_DDB_TABLE` env.
 
-configured by the
-This json is set by either the [dovetail-stitch-lambda](https://github.com/PRX/dovetail-stitch-lambda)
+This json was set by either the [dovetail-stitch-lambda](https://github.com/PRX/dovetail-stitch-lambda)
 or the [dovetail-cdn-arranger](https://github.com/PRX/dovetail-cdn-arranger)
 when it creates the stitched file, and has the format:
 
@@ -90,10 +89,10 @@ redis:6379> GET dtcounts:bytes:<listener-episode>/2019-02-28/<digest>
 ## Outputs
 
 After pushing the new byte-range to Redis, we also get back the _complete_ range
-downloaded for that listener-episode-day-digest.  That can be compared to the arrangement to
-determine how many total-bytes, and bytes-of-each-segment were downloaded.  After
+downloaded for that listener-episode-day-digest. That can be compared to the arrangement to
+determine how many total-bytes, and bytes-of-each-segment were downloaded. After
 a threshold seconds (or a percentage) of the entire file is downloaded, we then log
-that as an IAB-2.0 complaint download.  For segments, we wait for _all_ the bytes
+that as an IAB-2.0 complaint download. For segments, we wait for _all_ the bytes
 to be downloaded before sending an IAB-2.0 complaint impression.
 
 Since we might receive additional requests _after we've logged a download_, we
@@ -111,7 +110,7 @@ redis:6379> HGETALL dtcounts:imp:<listener-episode>:2019-02-28:<digest>
 8) ""
 ```
 
-The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 24 hours.  This should prevent
+The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 24 hours. This should prevent
 logging duplicate downloads/impressions until the `<utc-day>` rolls over to the
 next day.
 
@@ -136,7 +135,7 @@ a single arrangement for the entire 24-hour UTC day.
 
 ### Kinesis Impressions stream
 
-The `KINESIS_IMPRESSION_STREAM` is the main output of this function.  These should be processed by another lambda and streamed to BigQuery via the Dovetail [analytics-ingest-lambda](https://github.com/PRX/analytics-ingest-lambda)  These kinesis json records have the format:
+The `KINESIS_IMPRESSION_STREAM` is the main output of this function. These should be processed by another lambda and streamed to BigQuery via the Dovetail [analytics-ingest-lambda](https://github.com/PRX/analytics-ingest-lambda) These kinesis json records have the format:
 
 ```json
 {
@@ -170,12 +169,12 @@ or
 
 Generally, this Lambda attempts to log any errors, but only passes things that
 can truly be retried back to the
-the callback() function.  Instead, it just allows the origin-pull request to
+the callback() function. Instead, it just allows the origin-pull request to
 proceed, and let CloudFront return whatever it finds in S3.
 
 # Installation
 
-To get started, first install dev dependencies with `yarn`.  Then run `yarn test`.  End of list!
+To get started, first install dev dependencies with `yarn`. Then run `yarn test`. End of list!
 
 Or to use docker, just run `docker-compose build` and `docker-compose run test`.
 
