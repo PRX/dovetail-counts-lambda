@@ -28,19 +28,23 @@ logs across regions, each incoming "event" looks something like:
 ```
 
 This exactly what the [dovetail-bytes-lambda](https://github.com/PRX/dovetail-bytes-lambda) logs,
-and tells us which listener-episode and arrangement-digest to lookup.  The kinesis
+and tells us which listener-episode and arrangement-digest to lookup. The kinesis
 data also includes a milliseconds "timestamp" of when the CloudWatch log line was
 logged.
 
 ### Dovetail Arrangements
 
 To find the arrangement of files that made up this mp3, we look in the S3
-bucket `s3://${S3_BUCKET}/${S3_PREFIX}/_arrangements/${DIGEST}.json`. This file
-is created by dovetail when it creates the stitched file, and has the format:
+bucket `s3://${S3_BUCKET}/${S3_PREFIX}/_arrangements/${DIGEST}.json` or in a
+DynamoDB arrangements table configured by the `ARRANGEMENTS_DDB_TABLE` env.
+
+This json was set by either the [dovetail-stitch-lambda](https://github.com/PRX/dovetail-stitch-lambda)
+or the [dovetail-cdn-arranger](https://github.com/PRX/dovetail-cdn-arranger)
+when it creates the stitched file, and has the format:
 
 ```
 {
-  "version": 3,
+  "version": 4,
   "data": {
     "f": [
       "https://f.prxu.org/70/d87b79c6-734b-4022-b4ac-4c7da706a505/31f4ddc8-7f66-42a7-91aa-33a2202ce94f.mp3",
@@ -52,6 +56,7 @@ is created by dovetail when it creates the stitched file, and has the format:
       "http://static.adzerk.net/Advertisers/b4c8dde093294f388b59e94540876345.mp3"
     ],
     "t": "oaaaooi",
+    "a": {"f": "mp3", "b": 128, "c": 2, "s": 44100},
     "b": [
       81204,
       165841,
@@ -84,10 +89,10 @@ redis:6379> GET dtcounts:bytes:<listener-episode>/2019-02-28/<digest>
 ## Outputs
 
 After pushing the new byte-range to Redis, we also get back the _complete_ range
-downloaded for that listener-episode-day-digest.  That can be compared to the arrangement to
-determine how many total-bytes, and bytes-of-each-segment were downloaded.  After
+downloaded for that listener-episode-day-digest. That can be compared to the arrangement to
+determine how many total-bytes, and bytes-of-each-segment were downloaded. After
 a threshold seconds (or a percentage) of the entire file is downloaded, we then log
-that as an IAB-2.0 complaint download.  For segments, we wait for _all_ the bytes
+that as an IAB-2.0 complaint download. For segments, we wait for _all_ the bytes
 to be downloaded before sending an IAB-2.0 complaint impression.
 
 Since we might receive additional requests _after we've logged a download_, we
@@ -105,7 +110,7 @@ redis:6379> HGETALL dtcounts:imp:<listener-episode>:2019-02-28:<digest>
 8) ""
 ```
 
-The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 24 hours.  This should prevent
+The TTL on this (`REDIS_IMPRESSION_TTL`) defaults to 24 hours. This should prevent
 logging duplicate downloads/impressions until the `<utc-day>` rolls over to the
 next day.
 
@@ -128,13 +133,9 @@ will include the flags `{isDuplicate: true, cause: 'digestCache'}`.
 **NOTE**: this is likely a temporary measure, if we start locking listeners to
 a single arrangement for the entire 24-hour UTC day.
 
-### Kinesis missing arrangements stream
-
-The `KINESIS_ARRANGEMENT_STREAM` ENV is (probably) temporary.  When configured, the lambda will push any non-v3 arrangement digests onto the stream.  Then some other processor can ping the dovetail-stitch-lambda, which does the actual work of calculating the segment-bytes of the arrangement and uploading the v3 json to S3.
-
 ### Kinesis Impressions stream
 
-The `KINESIS_IMPRESSION_STREAM` is the main output of this function.  These should be processed by another lambda and streamed to BigQuery via the Dovetail [analytics-ingest-lambda](https://github.com/PRX/analytics-ingest-lambda)  These kinesis json records have the format:
+The `KINESIS_IMPRESSION_STREAM` is the main output of this function. These should be processed by another lambda and streamed to BigQuery via the Dovetail [analytics-ingest-lambda](https://github.com/PRX/analytics-ingest-lambda) These kinesis json records have the format:
 
 ```json
 {
@@ -168,12 +169,12 @@ or
 
 Generally, this Lambda attempts to log any errors, but only passes things that
 can truly be retried back to the
-the callback() function.  Instead, it just allows the origin-pull request to
+the callback() function. Instead, it just allows the origin-pull request to
 proceed, and let CloudFront return whatever it finds in S3.
 
 # Installation
 
-To get started, first install dev dependencies with `yarn`.  Then run `yarn test`.  End of list!
+To get started, first install dev dependencies with `yarn`. Then run `yarn test`. End of list!
 
 Or to use docker, just run `docker-compose build` and `docker-compose run test`.
 
