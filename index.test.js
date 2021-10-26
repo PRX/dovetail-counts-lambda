@@ -22,6 +22,8 @@ describe('handler', () => {
     delete process.env.DEFAULT_BITRATE
     delete process.env.PERCENT_THRESHOLD
     delete process.env.SECONDS_THRESHOLD
+    delete process.env.PROCESS_AFTER
+    delete process.env.PROCESS_UNTIL
   })
 
   afterEach(async () => {
@@ -332,5 +334,45 @@ describe('handler', () => {
       expect(log.warn.mock.calls[0][0].toString()).toMatch('Failed to put 1')
       expect(log.warn.mock.calls[0][1]).toEqual({ count: 1 })
     }
+  })
+
+  it('processes records after', async () => {
+    const a = [128, 2, 44100]
+    const now = new Date().getTime()
+    s3.__addArrangement('itest-digest1', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
+    s3.__addArrangement('itest-digest2', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest1', time: now - 10, start: 0, end: 29 })
+    decoder.__addBytes({ le: 'itest2', digest: 'itest-digest2', time: now + 10, start: 0, end: 29 })
+
+    process.env.PROCESS_AFTER = now
+
+    expect(await handler()).toMatchObject({ overall: 1, segments: 1 })
+    expect(kinesis.__records.length).toEqual(2)
+    expect(kinesis.__records[0]).toMatchObject({ type: 'bytes', digest: 'itest-digest2' })
+    expect(kinesis.__records[1]).toMatchObject({
+      type: 'segmentbytes',
+      segment: 0,
+      digest: 'itest-digest2',
+    })
+  })
+
+  it('processes records until', async () => {
+    const a = [128, 2, 44100]
+    const now = new Date().getTime()
+    s3.__addArrangement('itest-digest1', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
+    s3.__addArrangement('itest-digest2', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest1', time: now - 10, start: 0, end: 29 })
+    decoder.__addBytes({ le: 'itest2', digest: 'itest-digest2', time: now + 10, start: 0, end: 29 })
+
+    process.env.PROCESS_UNTIL = now
+
+    expect(await handler()).toMatchObject({ overall: 1, segments: 1 })
+    expect(kinesis.__records.length).toEqual(2)
+    expect(kinesis.__records[0]).toMatchObject({ type: 'bytes', digest: 'itest-digest1' })
+    expect(kinesis.__records[1]).toMatchObject({
+      type: 'segmentbytes',
+      segment: 0,
+      digest: 'itest-digest1',
+    })
   })
 })

@@ -17,7 +17,20 @@ const DEFAULT_PERCENT_THRESHOLD = 0.99
 exports.handler = async event => {
   let redis
   try {
-    const decoded = await decoder.decodeEvent(event)
+    let decoded = await decoder.decodeEvent(event)
+
+    // optionally start/stop at specific timestamps
+    if (process.env.PROCESS_AFTER) {
+      const count = decoded.length
+      const after = parseInt(process.env.PROCESS_AFTER)
+      decoded = decoded.filter(d => d.time > after)
+      log.info(`PROCESS_AFTER[${after}] processing ${decoded.length} / ${count} records`)
+    } else if (process.env.PROCESS_UNTIL) {
+      const count = decoded.length
+      const until = parseInt(process.env.PROCESS_UNTIL)
+      decoded = decoded.filter(d => d.time <= until)
+      log.info(`PROCESS_UNTIL[${until}] processing ${decoded.length} / ${count} records`)
+    }
 
     // missing redis url is retryable ... to keep kinesis from moving on
     if (!process.env.REDIS_URL) {
