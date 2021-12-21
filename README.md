@@ -34,12 +34,10 @@ logged.
 
 ### Dovetail Arrangements
 
-To find the arrangement of files that made up this mp3, we look in the S3
-bucket `s3://${S3_BUCKET}/${S3_PREFIX}/_arrangements/${DIGEST}.json` or in a
-DynamoDB arrangements table configured by the `ARRANGEMENTS_DDB_TABLE` env.
+To find the arrangement of files that made up this mp3, we look in the DynamoDB
+arrangements table configured by the `ARRANGEMENTS_DDB_TABLE` env.
 
-This json was set by either the [dovetail-stitch-lambda](https://github.com/PRX/dovetail-stitch-lambda)
-or the [dovetail-cdn-arranger](https://github.com/PRX/dovetail-cdn-arranger)
+This json was set by the [dovetail-cdn-arranger](https://github.com/PRX/dovetail-cdn-arranger)
 when it creates the stitched file, and has the format:
 
 ```
