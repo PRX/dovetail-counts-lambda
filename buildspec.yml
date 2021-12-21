@@ -3,10 +3,17 @@ env:
   variables:
     PRX_LAMBDA_CODE_CONFIG_PARAMETERS: 'DovetailCountsLambdaCodeS3ObjectKey'
     PRX_LAMBDA_ARCHIVE_BUILD_PATH: '/app/build.zip'
+  parameter-store:
+    DOCKERHUB_USERNAME: '/prx/DOCKERHUB_USERNAME'
+    DOCKERHUB_PASSWORD: '/prx/DOCKERHUB_PASSWORD'
   exported-variables:
     - PRX_LAMBDA_CODE_CONFIG_PARAMETERS
     - PRX_LAMBDA_CODE_CONFIG_VALUE
 phases:
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - echo $DOCKERHUB_PASSWORD | docker login --username $DOCKERHUB_USERNAME --password-stdin
   build:
     commands:
       - 'cp env-example .env'
