@@ -1,11 +1,11 @@
 version: 0.2
 env:
   variables:
-    PRX_LAMBDA_CODE_CONFIG_PARAMETERS: "DovetailCountsLambdaCodeS3ObjectKey"
-    PRX_LAMBDA_ARCHIVE_BUILD_PATH: "/app/build.zip"
+    PRX_LAMBDA_CODE_CONFIG_PARAMETERS: 'DovetailCountsLambdaCodeS3ObjectKey'
+    PRX_LAMBDA_ARCHIVE_BUILD_PATH: '/app/build.zip'
   parameter-store:
-    DOCKERHUB_USERNAME: "/prx/DOCKERHUB_USERNAME"
-    DOCKERHUB_PASSWORD: "/prx/DOCKERHUB_PASSWORD"
+    DOCKERHUB_USERNAME: '/prx/DOCKERHUB_USERNAME'
+    DOCKERHUB_PASSWORD: '/prx/DOCKERHUB_PASSWORD'
   exported-variables:
     - PRX_LAMBDA_CODE_CONFIG_PARAMETERS
     - PRX_LAMBDA_CODE_CONFIG_VALUE
@@ -16,10 +16,9 @@ phases:
       - echo $DOCKERHUB_PASSWORD | docker login --username $DOCKERHUB_USERNAME --password-stdin
   build:
     commands:
-      - "cd $(ls -d */|head -n 1)"
-      - "cp env-example .env"
-      - "docker-compose build"
-      - "docker-compose run test"
+      - 'cp env-example .env'
+      - 'docker-compose build'
+      - 'docker-compose run test'
   post_build:
     commands:
       - 'curl -sO "https://raw.githubusercontent.com/PRX/Infrastructure/master/ci/utility/post_build.sh" && chmod +x post_build.sh && . ./post_build.sh'

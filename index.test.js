@@ -6,12 +6,10 @@ const ByteRange = require('./lib/byte-range')
 const decoder = require('./lib/decoder')
 const RedisBackup = require('./lib/redis-backup')
 const dynamo = require('./lib/dynamo')
-const s3 = require('./lib/s3')
 const kinesis = require('./lib/kinesis')
 
 jest.mock('./lib/decoder')
 jest.mock('./lib/dynamo')
-jest.mock('./lib/s3')
 jest.mock('./lib/kinesis')
 
 describe('handler', () => {
@@ -30,9 +28,8 @@ describe('handler', () => {
     jest.restoreAllMocks()
     decoder.__clearBytes()
     dynamo.__clearArrangements()
-    s3.__clearArrangements()
     kinesis.__clearRecords()
-    await redis.nuke('dtcounts:s3:itest*')
+    await redis.nuke('dtcounts:ddb:itest*')
     await redis.nuke('dtcounts:bytes:itest*')
     await redis.nuke('dtcounts:imp:itest*')
     await redis.disconnect()
@@ -55,7 +52,7 @@ describe('handler', () => {
   })
 
   it('records whole downloads', async () => {
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'oaoa', b: [703, 21643903, 22158271, 33348223, 33530815], a: [128, 1, 44100] },
     })
@@ -69,7 +66,7 @@ describe('handler', () => {
   })
 
   it('records empty downloads', async () => {
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'aao', b: [10, 20, 30, 40], a: [128, 1, 44100] },
     })
@@ -87,7 +84,7 @@ describe('handler', () => {
     const bitrate = 0.08 // 10 bytes per second
     process.env.SECONDS_THRESHOLD = 10
 
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'o', b: [100, 300], a: [bitrate, 1, 44100] },
     })
@@ -116,7 +113,7 @@ describe('handler', () => {
     const bitrate = 0.8 // 100 bytes per second
     process.env.PERCENT_THRESHOLD = 0.5
 
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'oa', b: [100, 400, 500], a: [bitrate, 1, 44100] },
     })
@@ -143,7 +140,7 @@ describe('handler', () => {
   })
 
   it('defaults to requiring 100% of a short file to be downloaded', async () => {
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'o', b: [10, 20], a: [128, 1, 44100] },
     })
@@ -161,11 +158,11 @@ describe('handler', () => {
   })
 
   it('does not count segments until they are fully downloaded', async () => {
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'aao', b: [100, 200, 300, 4000], a: [128, 1, 44100] },
     })
-    s3.__addArrangement('itest-digest2', {
+    dynamo.__addArrangement('itest-digest2', {
       version: 4,
       data: { t: 'aao', b: [100, 200, 300, 4000], a: [128, 1, 44100] },
     })
@@ -193,7 +190,7 @@ describe('handler', () => {
   })
 
   it('does not count original segments', async () => {
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'aobisa?', b: [1, 2, 3, 4, 5, 6, 7, 8], a: [128, 1, 44100] },
     })
@@ -228,11 +225,11 @@ describe('handler', () => {
   it('it warns on bad arrangements', async () => {
     jest.spyOn(log, 'warn').mockImplementation(() => null)
 
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'o', b: [10, 100], a: [128, 1, 44100] },
     })
-    s3.__addArrangement('itest-digest2', { version: 2, data: { t: 'o', b: [10, 100] } })
+    dynamo.__addArrangement('itest-digest2', { version: 2, data: { t: 'o', b: [10, 100] } })
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100 })
     decoder.__addBytes({ le: 'itest2', digest: 'itest-digest2', time: 1, start: 0, end: 100 })
     decoder.__addBytes({ le: 'itest3', digest: 'foobar', time: 1, start: 0, end: 100 })
@@ -262,7 +259,7 @@ describe('handler', () => {
     const err = new RedisConnError('Something bad')
     jest.spyOn(ByteRange, 'load').mockRejectedValue(err)
     jest.spyOn(log, 'warn').mockImplementation(() => null)
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'o', b: [10, 100], a: [128, 2, 44100] },
     })
@@ -295,7 +292,7 @@ describe('handler', () => {
     process.env.DEFAULT_BITRATE = 80 // 10 bytes per second
     process.env.SECONDS_THRESHOLD = 10
 
-    s3.__addArrangement('itest-digest', { version: 3, data: { t: 'o', b: [100, 300] } })
+    dynamo.__addArrangement('itest-digest', { version: 3, data: { t: 'o', b: [100, 300] } })
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', start: 0, end: 198, time: 99998 })
 
     jest.spyOn(log, 'warn').mockImplementation()
@@ -321,7 +318,7 @@ describe('handler', () => {
     })
     jest.spyOn(log, 'warn').mockImplementation(() => null)
 
-    s3.__addArrangement('itest-digest', {
+    dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'o', b: [10, 20], a: [128, 1, 44100] },
     })
@@ -339,8 +336,14 @@ describe('handler', () => {
   it('processes records after', async () => {
     const a = [128, 2, 44100]
     const now = new Date().getTime()
-    s3.__addArrangement('itest-digest1', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
-    s3.__addArrangement('itest-digest2', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
+    dynamo.__addArrangement('itest-digest1', {
+      version: 4,
+      data: { t: 'ao', b: [10, 20, 30], a: a },
+    })
+    dynamo.__addArrangement('itest-digest2', {
+      version: 4,
+      data: { t: 'ao', b: [10, 20, 30], a: a },
+    })
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest1', time: now - 10, start: 0, end: 29 })
     decoder.__addBytes({ le: 'itest2', digest: 'itest-digest2', time: now + 10, start: 0, end: 29 })
 
@@ -359,8 +362,14 @@ describe('handler', () => {
   it('processes records until', async () => {
     const a = [128, 2, 44100]
     const now = new Date().getTime()
-    s3.__addArrangement('itest-digest1', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
-    s3.__addArrangement('itest-digest2', { version: 4, data: { t: 'ao', b: [10, 20, 30], a: a } })
+    dynamo.__addArrangement('itest-digest1', {
+      version: 4,
+      data: { t: 'ao', b: [10, 20, 30], a: a },
+    })
+    dynamo.__addArrangement('itest-digest2', {
+      version: 4,
+      data: { t: 'ao', b: [10, 20, 30], a: a },
+    })
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest1', time: now - 10, start: 0, end: 29 })
     decoder.__addBytes({ le: 'itest2', digest: 'itest-digest2', time: now + 10, start: 0, end: 29 })
 
