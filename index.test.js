@@ -230,9 +230,10 @@ describe('handler', () => {
       data: { t: 'o', b: [10, 100], a: [128, 1, 44100] },
     })
     dynamo.__addArrangement('itest-digest2', { version: 2, data: { t: 'o', b: [10, 100] } })
+    dynamo.__addArrangement('itest-digest3', { skip: true })
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100 })
     decoder.__addBytes({ le: 'itest2', digest: 'itest-digest2', time: 1, start: 0, end: 100 })
-    decoder.__addBytes({ le: 'itest3', digest: 'foobar', time: 1, start: 0, end: 100 })
+    decoder.__addBytes({ le: 'itest3', digest: 'itest-digest3', time: 1, start: 0, end: 100 })
 
     expect(await handler()).toMatchObject({ overall: 1, segments: 0 })
     expect(kinesis.__records.length).toEqual(1)
@@ -241,7 +242,7 @@ describe('handler', () => {
 
     const warns = log.warn.mock.calls.map(c => c[0].toString()).sort()
     expect(warns[0]).toMatch('ArrangementNoBytesError: Old itest-digest2')
-    expect(warns[1]).toMatch('ArrangementNotFoundError: Missing foobar')
+    expect(warns[1]).toMatch('ArrangementSkippableError: Skipping itest-digest3')
     expect(warns[2]).toMatch('Skipping byte')
     expect(warns[3]).toMatch('Skipping byte')
   })
@@ -253,6 +254,20 @@ describe('handler', () => {
     expect(await handler()).toEqual(null)
     expect(log.error).toHaveBeenCalledTimes(1)
     expect(log.error.mock.calls[0][0].toString()).toMatch('BadEventError: Something bad')
+  })
+
+  it('throws and retries missing arrangement errors', async () => {
+    jest.spyOn(log, 'warn').mockImplementation(() => null)
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 100 })
+    try {
+      await handler()
+      fail('should have gotten an error')
+    } catch (err) {
+      expect(log.warn).toHaveBeenCalledTimes(1)
+      expect(log.warn.mock.calls[0][0].toString()).toMatch(
+        'ArrangementNotFoundError: Missing itest-digest',
+      )
+    }
   })
 
   it('throws and retries redis errors', async () => {

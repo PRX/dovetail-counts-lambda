@@ -63,8 +63,7 @@ exports.handler = async event => {
     })
     await Promise.all(loadArrangements)
 
-    // filter/warn missing arrangements
-    // TODO: some limited retrying when we go to global DDB tables
+    // filter/warn skippable arrangements
     const readyBytes = decoded.filter(bytesData => {
       if (digests[bytesData.digest]) {
         return true
