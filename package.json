@@ -21,7 +21,7 @@
     "counts"
   ],
   "author": "ryan cavis <ryan@prx.org>",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0",
   "bugs": {
     "url": "https://github.com/PRX/dovetail-counts-lambda/issues"
   },
