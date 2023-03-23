@@ -13,8 +13,14 @@ been sent, logs that request-uuid as a "download", in compliance with the
 
 ### Kinesis events
 
-Excluding a bunch of gzip-ing and base64-ing done by kinesis as it moves CloudWatch
-logs across regions, each incoming "event" looks something like:
+Kinesis events come from one of three sources:
+
+1. **DEPRECATED** [dovetail-bytes-lambda](https://github.com/PRX/dovetail-bytes-lambda) [logged JSON](https://github.com/PRX/dovetail-counts-lambda/blob/main/lib/decoder/bytes-lambda.js)
+2. CloudFront [realtime logs](https://github.com/PRX/dovetail-counts-lambda/blob/main/lib/decoder/real-time.js)
+3. CloudFront [standard logs](https://github.com/PRX/dovetail-counts-lambda/blob/main/lib/decoder/standard.js)
+
+After decoding (gunzipping, base64-decoding, etc), all three of those sources are normalized
+into an "event" that looks something like:
 
 ```json
 {
@@ -27,8 +33,7 @@ logs across regions, each incoming "event" looks something like:
 }
 ```
 
-This exactly what the [dovetail-bytes-lambda](https://github.com/PRX/dovetail-bytes-lambda) logs,
-and tells us which listener-episode and arrangement-digest to lookup. The kinesis
+This tells us which listener-episode (listener-id + episode) and arrangement-digest to lookup. The kinesis
 data also includes a milliseconds "timestamp" of when the CloudWatch log line was
 logged.
 
