@@ -1,7 +1,6 @@
 version: 0.2
 env:
   variables:
-    PRX_LAMBDA_ARCHIVE_BUILD_PATH: /app/build.zip
     PRX_SPIRE_S3_PKG_PARAMETERS: LAMBDA_ZIP=/prx/stag/Spire/Dovetail-Counts/pkg/s3-object-key
     PRX_S3_ARCHIVE_BUILD_PATH: /app/build.zip
   parameter-store:
