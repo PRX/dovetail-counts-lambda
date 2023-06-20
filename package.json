@@ -2,7 +2,7 @@
   "name": "dovetail-counts-lambda",
   "version": "0.0.1",
   "engines": {
-    "node": ">= 8.10.0"
+    "node": ">= 16.0.0"
   },
   "description": "Count which bytes of a multi-segment mp3 were downloaded",
   "main": "index.js",
