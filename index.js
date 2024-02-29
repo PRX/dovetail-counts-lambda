@@ -95,10 +95,15 @@ exports.handler = async event => {
         // check which segments have been FULLY downloaded
         arr.segments.forEach(([firstByte, lastByte], idx) => {
           if (arr.isLoggable(idx)) {
+            const rec = { ...bytesData, segment: idx }
+
+            // handle empty/zero-byte segments - just make sure their "firstByte" was downloaded
             if (firstByte > lastByte) {
-              kinesisRecords.push({ ...bytesData, segment: idx, isDuplicate: true, cause: 'empty' })
+              if (range.complete(firstByte, firstByte)) {
+                kinesisRecords.push({ ...rec, isDuplicate: true, cause: 'empty' })
+              }
             } else if (range.complete(firstByte, lastByte)) {
-              kinesisRecords.push({ ...bytesData, segment: idx })
+              kinesisRecords.push(rec)
             }
           }
         })
