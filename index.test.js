@@ -207,6 +207,31 @@ describe('handler', () => {
     expect(kinesis.__records[6]).toMatchObject({ type: 'segmentbytes', segment: 6 })
   })
 
+  it.only('does not count empty segments', async () => {
+    dynamo.__addArrangement('itest-digest', {
+      version: 4,
+      data: { t: 'oaaao', b: [1, 2, 3, 3, 4, 5], a: [128, 1, 44100] },
+    })
+
+    // download just first ad
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 2 })
+    expect(await handler()).toMatchObject({ overall: 0, segments: 1 })
+    expect(kinesis.__records.length).toEqual(1)
+    expect(kinesis.__records[0]).toMatchObject({ type: 'segmentbytes', segment: 1 })
+
+    // download next byte, triggering segments 2 and 3
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 3 })
+    expect(await handler()).toMatchObject({ overall: 0, segments: 1 })
+    expect(kinesis.__records.length).toEqual(3)
+    expect(kinesis.__records[1]).toMatchObject({
+      type: 'segmentbytes',
+      segment: 2,
+      isDuplicate: true,
+      cause: 'empty',
+    })
+    expect(kinesis.__records[2]).toMatchObject({ type: 'segmentbytes', segment: 3 })
+  })
+
   it('allows dynamodb arrangements', async () => {
     jest.spyOn(log, 'warn').mockImplementation(() => null)
 
