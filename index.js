@@ -83,7 +83,8 @@ exports.handler = async event => {
         const total = bytesDownloaded.reduce((a, b) => a + b, 0)
         const totalSeconds = arr.bytesToSeconds(total)
         const totalPercent = arr.bytesToPercent(total)
-        if (totalSeconds >= minSeconds || totalPercent >= minPercent) {
+        const isDownload = totalSeconds >= minSeconds || totalPercent >= minPercent
+        if (isDownload) {
           kinesisRecords.push({
             ...bytesData,
             bytes: total,
@@ -94,7 +95,7 @@ exports.handler = async event => {
 
         // check which segments have been FULLY downloaded
         arr.segments.forEach(([firstByte, lastByte], idx) => {
-          if (arr.isLoggable(idx)) {
+          if (isDownload && arr.isLoggable(idx)) {
             const rec = { ...bytesData, segment: idx }
 
             // handle empty/zero-byte segments - just make sure their "firstByte" was downloaded
