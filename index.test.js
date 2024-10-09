@@ -178,9 +178,23 @@ describe('handler', () => {
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest2', time: 1, start: 199, end: 199 })
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 281, end: 281 })
 
-    expect(await handler()).toMatchObject({ overall: 0, segments: 1 })
-    expect(kinesis.__records.length).toEqual(1)
-    expect(kinesis.__records[0]).toEqual({
+    // no impressions yet - overall download not reached
+    expect(await handler()).toMatchObject({ overall: 0, segments: 0 })
+    expect(kinesis.__records.length).toEqual(0)
+
+    decoder.__clearBytes()
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 300, end: 4000 })
+
+    // now we've hit the overall download
+    expect(await handler()).toMatchObject({ overall: 1, segments: 1 })
+    expect(kinesis.__records.length).toEqual(2)
+    expect(kinesis.__records[0]).toMatchObject({
+      type: 'bytes',
+      listenerEpisode: 'itest1',
+      digest: 'itest-digest',
+      timestamp: 1,
+    })
+    expect(kinesis.__records[1]).toEqual({
       type: 'segmentbytes',
       listenerEpisode: 'itest1',
       digest: 'itest-digest',
@@ -207,11 +221,18 @@ describe('handler', () => {
     expect(kinesis.__records[6]).toMatchObject({ type: 'segmentbytes', segment: 6 })
   })
 
-  it.only('does not count empty segments', async () => {
+  it('does not count empty segments', async () => {
     dynamo.__addArrangement('itest-digest', {
       version: 4,
-      data: { t: 'oaaao', b: [1, 2, 3, 3, 4, 5], a: [128, 1, 44100] },
+      data: { t: 'oaaao', b: [1, 2, 3, 3, 4, 50000], a: [128, 1, 44100] },
     })
+
+    // first off, trigger the overall download
+    decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 4, end: 50000 })
+    expect(await handler()).toMatchObject({ overall: 1, segments: 0 })
+    expect(kinesis.__records.length).toEqual(1)
+    kinesis.__clearRecords()
+    decoder.__clearBytes()
 
     // download just first ad
     decoder.__addBytes({ le: 'itest1', digest: 'itest-digest', time: 1, start: 0, end: 2 })
