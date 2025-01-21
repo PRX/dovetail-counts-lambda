@@ -60,9 +60,19 @@ describe('handler', () => {
 
     expect(await handler()).toMatchObject({ overall: 1, segments: 2 })
     expect(kinesis.__records.length).toEqual(3)
-    expect(kinesis.__records[0]).toMatchObject({ type: 'bytes' })
-    expect(kinesis.__records[1]).toMatchObject({ type: 'segmentbytes', segment: 1 })
-    expect(kinesis.__records[2]).toMatchObject({ type: 'segmentbytes', segment: 3 })
+    expect(kinesis.__records[0]).toMatchObject({ type: 'bytes', percentAds: 0.0208 })
+    expect(kinesis.__records[1]).toMatchObject({
+      type: 'segmentbytes',
+      percentAds: 0.0208,
+      segment: 1,
+      segmentPosition: 0,
+    })
+    expect(kinesis.__records[2]).toMatchObject({
+      type: 'segmentbytes',
+      percentAds: 0.0208,
+      segment: 3,
+      segmentPosition: 0,
+    })
   })
 
   it('records empty downloads', async () => {
@@ -106,6 +116,7 @@ describe('handler', () => {
       bytes: 100,
       seconds: 10,
       percent: 0.5,
+      percentAds: 0,
     })
   })
 
@@ -136,6 +147,7 @@ describe('handler', () => {
       bytes: 311,
       seconds: 3.11,
       percent: 0.7775,
+      percentAds: 0.25,
     })
   })
 
@@ -200,6 +212,8 @@ describe('handler', () => {
       digest: 'itest-digest',
       segment: 1,
       timestamp: 1,
+      percentAds: 0.0513,
+      segmentPosition: 1,
     })
   })
 
