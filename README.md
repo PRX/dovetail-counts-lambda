@@ -149,6 +149,7 @@ The `KINESIS_IMPRESSION_STREAM` is the main output of this function. These shoul
   "bytes": 9999,
   "seconds": 1.84,
   "percent": 0.65,
+  "percentAds": 0.0684,
   "isDuplicate": true,
   "cause": "digestCache"
 }
@@ -163,6 +164,8 @@ or
   "listenerEpisode": "some-listener-episode",
   "digest": "the-arrangement-digest",
   "segment": 3,
+  "segmentPosition": 0,
+  "percentAds": 0.0684,
   "isDuplicate": true,
   "cause": "digestCache"
 }
@@ -184,4 +187,3 @@ Or to use docker, just run `docker-compose build` and `docker-compose run test`.
 # License
 
 [AGPL License](https://www.gnu.org/licenses/agpl-3.0.html)
-
