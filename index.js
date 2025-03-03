@@ -77,7 +77,6 @@ exports.handler = async event => {
       readyBytes.map(async bytesData => {
         const range = await ByteRange.load(bytesData.id, redis, bytesData.bytes)
         const arr = digests[bytesData.digest]
-        const ads = arr.percentAds
 
         // check if the file-as-a-whole has been downloaded
         const bytesDownloaded = arr.segments.map(s => range.intersect(s))
@@ -91,15 +90,13 @@ exports.handler = async event => {
             bytes: total,
             seconds: totalSeconds,
             percent: totalPercent,
-            percentAds: ads,
           })
         }
 
         // check which segments have been FULLY downloaded
         arr.segments.forEach(([firstByte, lastByte], idx) => {
           if (isDownload && arr.isLoggable(idx)) {
-            const pos = arr.segmentPosition(idx)
-            const rec = { ...bytesData, segment: idx, segmentPosition: pos, percentAds: ads }
+            const rec = { ...bytesData, segment: idx }
 
             // handle empty/zero-byte segments - just make sure their "firstByte" was downloaded
             if (firstByte > lastByte) {
