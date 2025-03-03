@@ -90,6 +90,8 @@ exports.handler = async event => {
             bytes: total,
             seconds: totalSeconds,
             percent: totalPercent,
+            durations: arr.durations(),
+            types: arr.types,
           })
         }
 

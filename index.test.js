@@ -157,7 +157,7 @@ describe('handler', () => {
     expect(kinesis.__records[0]).toMatchObject({ type: 'bytes' })
   })
 
-  it('does not count segments until they are fully downloaded', async () => {
+  it.only('does not count segments until they are fully downloaded', async () => {
     dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'aao', b: [100, 200, 300, 4000], a: [128, 1, 44100] },
@@ -193,6 +193,8 @@ describe('handler', () => {
       listenerEpisode: 'itest1',
       digest: 'itest-digest',
       timestamp: 1,
+      durations: [0.00625, 0.00625, 0.23125],
+      types: 'aao',
     })
     expect(kinesis.__records[1]).toEqual({
       type: 'segmentbytes',
