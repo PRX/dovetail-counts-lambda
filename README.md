@@ -149,7 +149,8 @@ The `KINESIS_IMPRESSION_STREAM` is the main output of this function. These shoul
   "bytes": 9999,
   "seconds": 1.84,
   "percent": 0.65,
-  "percentAds": 0.0684,
+  "durations": [12.85924, 948.9482285, 1.5846666666],
+  "types": "aoi",
   "isDuplicate": true,
   "cause": "digestCache"
 }
@@ -164,8 +165,6 @@ or
   "listenerEpisode": "some-listener-episode",
   "digest": "the-arrangement-digest",
   "segment": 3,
-  "segmentPosition": 0,
-  "percentAds": 0.0684,
   "isDuplicate": true,
   "cause": "digestCache"
 }
