@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/PRX/dovetail-counts-lambda#readme",
   "dependencies": {
-    "ioredis": "^4.0.0",
+    "ioredis": "^5.0.0",
     "lambda-log": "^3.1.0"
   },
   "devDependencies": {
