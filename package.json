@@ -7,11 +7,15 @@
   "description": "Count which bytes of a multi-segment mp3 were downloaded",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
     "build": "yarn run build-sync && yarn run build-prune && yarn run build-zip",
     "build-sync": "rsync -crl --delete --exclude-from .lambdaignore . build",
     "build-prune": "cd build && yarn --production",
-    "build-zip": "rm -f build.zip && cd build && zip -rq ../build.zip ."
+    "build-zip": "rm -f build.zip && cd build && zip -rq ../build.zip .",
+    "lint": "biome check",
+    "lint-ci": "biome ci",
+    "lint-fix": "biome check --write --unsafe",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest",
+    "watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --watch"
   },
   "repository": {
     "type": "git",
@@ -30,7 +34,7 @@
   },
   "homepage": "https://github.com/PRX/dovetail-counts-lambda#readme",
   "dependencies": {
-    "ioredis": "^5.0.0",
+    "ioredis": "^4.0.0",
     "lambda-log": "^3.1.0"
   },
   "devDependencies": {
@@ -46,6 +50,7 @@
     "nock": "^14.0.10"
   },
   "jest": {
+    "setupFiles": ["dotenv/config"],
     "restoreMocks": true,
     "moduleNameMapper": {
       "^aws-sdk-client-mock-jest$": "<rootDir>/node_modules/aws-sdk-client-mock-jest/dist/cjs/jest.js"
