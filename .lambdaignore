@@ -1,12 +1,15 @@
 .dockerignore
+.editorconfig
 .env
 .git
 .gitignore
 .lambdaignore
-.nvmrc
+.tool-revisions
 __mocks__
+biome.json
 Dockerfile
 docker-compose.yml
+env-example
 test-setup.js
 /build*
 /tmp
