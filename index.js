@@ -69,6 +69,7 @@ exports.handler = async event => {
         return true
       } else {
         log.warn('Skipping byte', { byte: bytesData })
+        return false
       }
     })
 
