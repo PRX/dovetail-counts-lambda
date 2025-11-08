@@ -106,6 +106,8 @@ describe('handler', () => {
       bytes: 100,
       seconds: 10,
       percent: 0.5,
+      types: 'o',
+      durations: [20],
     })
   })
 
@@ -136,6 +138,8 @@ describe('handler', () => {
       bytes: 311,
       seconds: 3.11,
       percent: 0.7775,
+      types: "oa",
+      durations: [3, 1],
     })
   })
 
@@ -157,7 +161,7 @@ describe('handler', () => {
     expect(kinesis.__records[0]).toMatchObject({ type: 'bytes' })
   })
 
-  it.only('does not count segments until they are fully downloaded', async () => {
+  it('does not count segments until they are fully downloaded', async () => {
     dynamo.__addArrangement('itest-digest', {
       version: 4,
       data: { t: 'aao', b: [100, 200, 300, 4000], a: [128, 1, 44100] },
@@ -398,7 +402,7 @@ describe('handler', () => {
 
   it('processes records after', async () => {
     const a = [128, 2, 44100]
-    const now = new Date().getTime()
+    const now = Date.now()
     dynamo.__addArrangement('itest-digest1', {
       version: 4,
       data: { t: 'ao', b: [10, 20, 30], a: a },
@@ -424,7 +428,7 @@ describe('handler', () => {
 
   it('processes records until', async () => {
     const a = [128, 2, 44100]
-    const now = new Date().getTime()
+    const now = Date.now()
     dynamo.__addArrangement('itest-digest1', {
       version: 4,
       data: { t: 'ao', b: [10, 20, 30], a: a },
