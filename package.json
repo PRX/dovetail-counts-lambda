@@ -34,6 +34,9 @@
   },
   "homepage": "https://github.com/PRX/dovetail-counts-lambda#readme",
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.891.0",
+    "@aws-sdk/client-kinesis": "^3.891.0",
+    "@aws-sdk/client-sts": "^3.891.0",
     "targz": "^1.0.1",
     "@biomejs/biome": "2.2.4",
     "aws-sdk-client-mock": "^4.1.0",
@@ -43,9 +46,7 @@
     "nock": "^14.0.10"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.891.0",
-    "@aws-sdk/client-kinesis": "^3.891.0",
-    "@aws-sdk/client-sts": "^3.891.0",
+    "@smithy/node-http-handler": "^4.4.5",
     "ioredis": "^4.0.0",
     "lambda-log": "^3.1.0"
   },
